@@ -89,7 +89,7 @@ public class MainActivity extends Activity {
         ws.setAllowFileAccess(false); ws.setAllowContentAccess(false);
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         ws.setJavaScriptCanOpenWindowsAutomatically(false); ws.setSupportMultipleWindows(false);
-        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.1.0");
+        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.1.1");
         WebView.setWebContentsDebuggingEnabled(false);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(browser,false);
@@ -163,7 +163,7 @@ public class MainActivity extends Activity {
                 } else loadServer();
             } catch(IllegalArgumentException e) { addressError.setText(e.getMessage()); }
         });
-        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.1.0 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
+        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.1.1 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
         android.widget.CheckBox privateEvents=new android.widget.CheckBox(this);
         privateEvents.setText("위젯에 나의 개인 일정 표시");
         privateEvents.setChecked(preferences.getBoolean("widget_private",false));

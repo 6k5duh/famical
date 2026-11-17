@@ -1,1 +1,1 @@
-<resources><string name="app_name">우리 가족 달력</string><string name="widget_refresh">갱신</string></resources>
+<resources><string name="app_name">우리 가족 달력</string><string name="widget_refresh">갱신</string><string name="weekday_0">일</string><string name="weekday_1">월</string><string name="weekday_2">화</string><string name="weekday_3">수</string><string name="weekday_4">목</string><string name="weekday_5">금</string><string name="weekday_6">토</string></resources>

@@ -1,19 +1,12 @@
 package org.famical.calendar;
 
-import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.BackgroundColorSpan;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.StyleSpan;
 import android.webkit.CookieManager;
 import android.widget.RemoteViews;
 import org.json.JSONArray;
@@ -31,10 +24,13 @@ import java.util.Locale;
 import java.util.concurrent.Executors;
 
 public class CalendarWidget extends AppWidgetProvider {
-    private static final String REFRESH="org.famical.calendar.WIDGET_REFRESH";
+    static final String REFRESH="org.famical.calendar.WIDGET_REFRESH";
     private static final java.util.concurrent.ExecutorService WORK=Executors.newSingleThreadExecutor();
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     @Override public void onUpdate(Context context,AppWidgetManager manager,int[] ids) { refresh(context,goAsync()); }
+    @Override public void onAppWidgetOptionsChanged(Context context,AppWidgetManager manager,int id,android.os.Bundle options) {
+        renderOne(context,manager,id,options,context.getSharedPreferences("famical",Context.MODE_PRIVATE).getString("widget_status","갱신해 주세요"));
+    }
     @Override public void onReceive(Context context,Intent intent) {
         if(REFRESH.equals(intent.getAction())) refresh(context,goAsync());
         else super.onReceive(context,intent);
@@ -104,35 +100,29 @@ public class CalendarWidget extends AppWidgetProvider {
         catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}
     }
     private static void render(Context context,String status) {
-        SharedPreferences p=context.getSharedPreferences("famical",Context.MODE_PRIVATE);LocalDate today=LocalDate.now();
-        boolean on=p.getBoolean("widget_shift",true);String team=p.getString("widget_team","A");
-        RemoteViews views=new RemoteViews(context.getPackageName(),R.layout.calendar_widget);
-        views.setTextViewText(R.id.widget_title,today.format(DateTimeFormatter.ofPattern("yyyy년 M월 d일 EEEE",Locale.KOREAN)));
-        views.setTextViewText(R.id.widget_shift,WidgetSummary.shift(today,team,on));
-        views.setTextViewText(R.id.widget_month,coloredMonth(today,team,on));
-        views.setTextViewText(R.id.widget_events,today.toString().equals(p.getString("widget_day",""))?p.getString("widget_lines",""):"앱에서 로그인 후 갱신해 주세요");
-        views.setTextViewText(R.id.widget_status,status);
-        Intent open=new Intent(context,MainActivity.class);open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        views.setOnClickPendingIntent(R.id.widget_root,PendingIntent.getActivity(context,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
-        Intent update=new Intent(context,CalendarWidget.class).setAction(REFRESH);
-        views.setOnClickPendingIntent(R.id.widget_refresh,PendingIntent.getBroadcast(context,0,update,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
+        SharedPreferences p=context.getSharedPreferences("famical",Context.MODE_PRIVATE);
+        p.edit().putString("widget_status",status).apply();
         AppWidgetManager manager=AppWidgetManager.getInstance(context);
-        manager.updateAppWidget(new android.content.ComponentName(context,CalendarWidget.class),views);
+        int[] ids=manager.getAppWidgetIds(new android.content.ComponentName(context,CalendarWidget.class));
+        for(int id:ids) renderOne(context,manager,id,manager.getAppWidgetOptions(id),status);
     }
-    private static CharSequence coloredMonth(LocalDate today,String team,boolean enabled) {
-        String grid=WidgetSummary.monthGrid(today);SpannableString text=new SpannableString(grid);
-        int offset=YearMonth.from(today).atDay(1).getDayOfWeek().getValue()%7;
-        int header=grid.indexOf('\n')+1;
-        for(int day=1;day<=YearMonth.from(today).lengthOfMonth();day++) {
-            LocalDate d=today.withDayOfMonth(day);int index=offset+day-1;
-            int start=header+index*3+index/7;
-            int background=Color.rgb(246,245,239);
-            if(d.getDayOfWeek().getValue()>=6)background=Color.rgb(243,223,225);
-            else {String shift=WidgetSummary.shift(d,team,enabled);if(shift.endsWith("야간"))background=Color.rgb(247,239,187);else if(!shift.isEmpty())background=Color.rgb(220,233,216);}
-            text.setSpan(new BackgroundColorSpan(background),start,start+3,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            text.setSpan(new ForegroundColorSpan(Color.rgb(35,58,50)),start,start+3,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            if(day==today.getDayOfMonth())text.setSpan(new StyleSpan(android.graphics.Typeface.BOLD),start,start+3,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
-        return text;
+    private static void renderOne(Context context,AppWidgetManager manager,int id,android.os.Bundle options,String status) {
+        RemoteViews views;
+        if(android.os.Build.VERSION.SDK_INT>=31) {
+            java.util.ArrayList<android.util.SizeF> sizes=options.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES);
+            java.util.Map<android.util.SizeF,RemoteViews> variants=new java.util.LinkedHashMap<>();
+            if(sizes!=null) for(android.util.SizeF size:sizes) {
+                if(size.getWidth()>0 && size.getHeight()>0 && variants.size()<8)
+                    variants.put(size,WidgetRenderer.create(context,size.getWidth(),size.getHeight(),LocalDate.now(),status));
+            }
+            views=variants.isEmpty()?fallbackView(context,options,status):new RemoteViews(variants);
+        } else views=fallbackView(context,options,status);
+        manager.updateAppWidget(id,views);
+    }
+    private static RemoteViews fallbackView(Context context,android.os.Bundle options,String status) {
+        boolean landscape=context.getResources().getConfiguration().orientation==android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        int width=options.getInt(landscape?AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH:AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH,280);
+        int height=options.getInt(landscape?AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT:AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT,320);
+        return WidgetRenderer.create(context,width,height,LocalDate.now(),status);
     }
 }

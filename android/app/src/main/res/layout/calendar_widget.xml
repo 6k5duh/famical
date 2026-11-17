@@ -1,10 +1,2 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_background">
-    <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="15sp" android:textStyle="bold" />
-    <TextView android:id="@+id/widget_shift" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#F7EFBB" android:textSize="12sp" />
-    <TextView android:id="@+id/widget_month" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="monospace" android:textColor="#FFFFFF" android:textSize="12sp" android:gravity="center" android:lineSpacingExtra="1dp" android:layout_marginTop="4dp" />
-    <TextView android:id="@+id/widget_events" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:textColor="#FFFFFF" android:textSize="12sp" android:maxLines="3" android:ellipsize="end" android:layout_marginTop="6dp" />
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-        <TextView android:id="@+id/widget_status" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textColor="#DBE9DF" android:textSize="11sp" />
-        <Button android:id="@+id/widget_refresh" android:layout_width="wrap_content" android:layout_height="32dp" android:minWidth="48dp" android:minHeight="32dp" android:text="@string/widget_refresh" android:textSize="11sp" android:padding="0dp" />
-    </LinearLayout>
-</LinearLayout>
+<!-- Keep the legacy layout ID so existing launchers can distinguish the new grid layout. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent"><include layout="@layout/calendar_widget_grid" /></FrameLayout>
