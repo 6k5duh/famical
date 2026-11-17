@@ -29,8 +29,9 @@ with db() as c:
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, title TEXT NOT NULL, day TEXT NOT NULL, clock TEXT NOT NULL, note TEXT NOT NULL, owner INTEGER NOT NULL REFERENCES users(id));
 CREATE TABLE IF NOT EXISTS attempts(username TEXT PRIMARY KEY, count INTEGER, since REAL);''')
     existing={r[1] for r in c.execute('PRAGMA table_info(events)')}
-    for name, definition in [('calendar_type', "TEXT NOT NULL DEFAULT 'solar'"), ('annual', 'INTEGER NOT NULL DEFAULT 0'), ('leap', 'INTEGER NOT NULL DEFAULT 0')]:
+    for name, definition in [('calendar_type', "TEXT NOT NULL DEFAULT 'solar'"), ('annual', 'INTEGER NOT NULL DEFAULT 0'), ('leap', 'INTEGER NOT NULL DEFAULT 0'), ('end_day', "TEXT NOT NULL DEFAULT ''"), ('visibility', "TEXT NOT NULL DEFAULT 'shared'"), ('color', "TEXT NOT NULL DEFAULT 'sage'")]:
         if name not in existing: c.execute(f'ALTER TABLE events ADD COLUMN {name} {definition}')
+    c.execute("UPDATE events SET end_day=day WHERE end_day=''")
 def user():
     with db() as c: return c.execute('SELECT id, username, name, admin FROM users WHERE id=?',(session.get('uid'),)).fetchone()
 def required(fn):
@@ -119,17 +120,43 @@ def lunar_month():
         k=KoreanLunarCalendar()
         if k.setSolarDate(y,m,d): result[date(y,m,d).isoformat()]={'month':k.lunarMonth,'day':k.lunarDay,'leap':bool(k.isIntercalation)}
     return jsonify(result)
+def calendar_date(stamp, kind, leap=False):
+    if not isinstance(stamp,str) or not re.fullmatch(r'(19|20)\d{2}-\d{2}-\d{2}', stamp):
+        raise ValueError('날짜는 YYYY-MM-DD 형식으로 입력해 주세요.')
+    if kind=='lunar':
+        converted=lunar_to_solar(*map(int,stamp.split('-')),leap)
+        if not converted: raise ValueError('유효하지 않은 음력 날짜입니다. 윤달 여부와 지원 범위를 확인해 주세요.')
+        return date.fromisoformat(converted)
+    return date.fromisoformat(stamp)
+
+def event_spans(event, year):
+    start_source=event['day']; end_source=event['end_day'] or start_source
+    start_year=int(start_source[:4]); offset=int(end_source[:4])-start_year
+    years=[year-1,year,year+1] if event['annual'] else [start_year]
+    for y in years:
+        start=f'{y:04d}'+start_source[4:]
+        end=f'{y+offset:04d}'+end_source[4:]
+        try:
+            a=calendar_date(start,event['calendar_type'],event['leap'])
+            b=calendar_date(end,event['calendar_type'],event['leap'])
+            if 0 <= (b-a).days <= 365: yield a.isoformat(),b.isoformat()
+        except ValueError: continue
+
 @app.get('/api/events')
 @required
 def events():
     month=request.args.get('month','')
     if not re.fullmatch(r'(19|20)\d{2}-(0[1-9]|1[0-2])',month): abort(400)
-    with db() as c: rows=c.execute('SELECT e.*,u.name AS author FROM events e JOIN users u ON e.owner=u.id').fetchall()
+    y,m=map(int,month.split('-'))
+    first=date(y,m,1).isoformat(); last=date(y,m,calendar.monthrange(y,m)[1]).isoformat()
+    with db() as c:
+        rows=c.execute("SELECT e.*,u.name AS author FROM events e JOIN users u ON e.owner=u.id WHERE e.visibility='shared' OR e.owner=?",(session['uid'],)).fetchall()
     result=[]
     for row in rows:
         e=dict(row)
-        for stamp in occurrences(e,int(month[:4])):
-            if stamp.startswith(month+'-'): result.append({**e,'source_day':e['day'],'day':stamp})
+        for start,end in event_spans(e,y):
+            if start<=last and end>=first:
+                result.append({**e,'source_day':e['day'],'source_end_day':e['end_day'],'day':start,'end_day':end})
     return jsonify(sorted(result,key=lambda e:(e['day'],e['clock'],e['id'])))
 @app.route('/api/events',methods=['POST'])
 @app.route('/api/events/<int:eid>',methods=['PUT','DELETE'])
@@ -137,7 +164,7 @@ def events():
 def save(eid=None):
     with db() as c:
         if eid is not None:
-            old=c.execute('SELECT * FROM events WHERE id=?',(eid,)).fetchone()
+            old=c.execute("SELECT * FROM events WHERE id=? AND (visibility='shared' OR owner=?)",(eid,session['uid'])).fetchone()
             if not old: abort(404)
             if old['owner']!=session['uid'] and not user()['admin']: abort(403)
         if request.method=='DELETE': c.execute('DELETE FROM events WHERE id=?',(eid,)); return jsonify(ok=True)
@@ -145,18 +172,20 @@ def save(eid=None):
         title=str(d.get('title','')).strip(); day=str(d.get('day','')); clock=str(d.get('clock','')); note=str(d.get('note',''))
         kind=d.get('calendar_type','solar'); annual=d.get('annual',False); leap=d.get('leap',False)
         if kind not in ('solar','lunar') or type(annual) is not bool or type(leap) is not bool: abort(400)
-        if not re.fullmatch(r'(19|20)\d{2}-\d{2}-\d{2}',day): abort(400)
-        if kind=='solar':
-            try: date.fromisoformat(day)
-            except ValueError: abort(400)
-            leap=False
-        else:
-            y,m,dd=map(int,day.split('-'))
-            if not lunar_to_solar(y,m,dd,leap): return jsonify(error='유효하지 않거나 지원 범위를 벗어난 음력 날짜입니다. 윤달 여부도 확인해 주세요.'),400
+        end_day=d.get('end_day') or day
+        visibility=d.get('visibility','shared'); color=d.get('color','sage')
+        if visibility not in ('shared','private') or color not in ('sage','blue','rose','amber','violet'): abort(400)
+        if kind=='solar': leap=False
+        try:
+            start_date=calendar_date(day,kind,leap)
+            end_date=calendar_date(end_day,kind,leap)
+        except (ValueError,TypeError): return jsonify(error='날짜가 유효하지 않습니다. 음력은 윤달 여부도 확인해 주세요.'),400
+        if not 0 <= (end_date-start_date).days <= 365:
+            return jsonify(error='종료일은 시작일 이후여야 하며 일정 기간은 최대 366일입니다.'),400
         if not 1<=len(title)<=100 or len(note)>2000 or (clock and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d',clock)): abort(400)
-        values=(title,day,clock,note,kind,int(annual),int(leap))
-        if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=? WHERE id=?',values+(eid,))
-        else: c.execute('INSERT INTO events(title,day,clock,note,calendar_type,annual,leap,owner) VALUES(?,?,?,?,?,?,?,?)',values+(session['uid'],))
+        values=(title,day,clock,note,kind,int(annual),int(leap),end_day,visibility,color)
+        if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=?,end_day=?,visibility=?,color=? WHERE id=?',values+(eid,))
+        else: c.execute('INSERT INTO events(title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?)',values+(session['uid'],))
     return jsonify(ok=True)
 if __name__=='__main__':
     import argparse

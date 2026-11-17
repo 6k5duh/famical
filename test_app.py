@@ -51,4 +51,47 @@ class CalendarTest(unittest.TestCase):
   # Re-import uses the same database and signing key.
   before=self.app.secret_key;self.assertEqual(importlib.reload(self.m).app.secret_key,before)
   with self.m.db() as c:self.assertEqual(c.execute('SELECT count(*) FROM users').fetchone()[0],4)
+ def test_private_visibility_and_mutation(self):
+  owner,h=self.client(1)
+  payload=self.event(title='개인 기간',day='2026-11-28',end_day='2026-12-03',visibility='private',color='blue')
+  self.assertEqual(owner.post('/api/events',json=payload,headers=h).status_code,200)
+  own=owner.get('/api/events?month=2026-12').json
+  ev=next(e for e in own if e['title']=='개인 기간');self.assertEqual(ev['end_day'],'2026-12-03');self.assertEqual(ev['color'],'blue')
+  for i in (0,2,3):
+   other,oh=self.client(i)
+   self.assertNotIn(ev['id'],[e['id'] for e in other.get('/api/events?month=2026-12').json])
+   self.assertEqual(other.put(f"/api/events/{ev['id']}",json=payload,headers=oh).status_code,404)
+   self.assertEqual(other.delete(f"/api/events/{ev['id']}",headers=oh).status_code,404)
+  payload['visibility']='shared'
+  self.assertEqual(owner.put(f"/api/events/{ev['id']}",json=payload,headers=h).status_code,200)
+  other,oh=self.client(2)
+  self.assertIn(ev['id'],[e['id'] for e in other.get('/api/events?month=2026-12').json])
+  payload['visibility']='private';owner.put(f"/api/events/{ev['id']}",json=payload,headers=h)
+  self.assertNotIn(ev['id'],[e['id'] for e in other.get('/api/events?month=2026-12').json])
+ def test_ranges_cross_month_and_year(self):
+  c,h=self.client(1)
+  cases=[self.event(title='연말 여행',day='2026-12-30',end_day='2027-01-03',annual=True),self.event(title='음력 연말',day='2025-12-29',end_day='2026-01-02',calendar_type='lunar',annual=True)]
+  for d in cases:self.assertEqual(c.post('/api/events',json=d,headers=h).status_code,200)
+  jan=c.get('/api/events?month=2028-01').json
+  e=next(e for e in jan if e['title']=='연말 여행');self.assertEqual((e['day'],e['end_day']),('2027-12-30','2028-01-03'))
+  feb=c.get('/api/events?month=2026-02').json
+  e=next(e for e in feb if e['title']=='음력 연말');self.assertEqual((e['day'],e['end_day']),('2026-02-16','2026-02-18'))
+  self.assertFalse(any(e['title']=='연말 여행' for e in c.get('/api/events?month=2028-02').json))
+ def test_range_validation_and_defaults(self):
+  c,h=self.client(1)
+  for d in [self.event(end_day='2026-11-16'),self.event(end_day='2028-01-01'),self.event(end_day='2026-02-30'),self.event(visibility='invalid'),self.event(color='invalid')]:
+   self.assertEqual(c.post('/api/events',json=d,headers=h).status_code,400)
+  self.assertEqual(c.post('/api/events',json=self.event(title='기본 공개'),headers=h).status_code,200)
+  e=next(e for e in c.get('/api/events?month=2026-11').json if e['title']=='기본 공개')
+  self.assertEqual((e['day'],e['end_day'],e['visibility'],e['color']),('2026-11-17','2026-11-17','shared','sage'))
+ def test_legacy_database_migration(self):
+  # Run a new process against an old database, preserving its original user and event.
+  import sqlite3,sys
+  with tempfile.TemporaryDirectory() as tmp:
+   with sqlite3.connect(Path(tmp)/'calendar.db') as con:
+    con.executescript("CREATE TABLE users(id INTEGER PRIMARY KEY,username TEXT UNIQUE,name TEXT,password TEXT,admin INTEGER DEFAULT 0); CREATE TABLE events(id INTEGER PRIMARY KEY,title TEXT,day TEXT,clock TEXT,note TEXT,owner INTEGER); INSERT INTO users VALUES(1,'legacy','기존 계정','hash',0); INSERT INTO events VALUES(1,'기존 일정','2026-11-17','','',1);")
+   env={**os.environ,'DATA_DIR':tmp}
+   result=subprocess.run([sys.executable,'-c',"import app; c=app.db(); r=dict(c.execute('SELECT * FROM events').fetchone()); assert r['end_day']==r['day'] and r['visibility']=='shared' and r['color']=='sage'; assert c.execute('SELECT count(*) FROM users').fetchone()[0]==1"],env=env,capture_output=True,text=True)
+   self.assertEqual(result.returncode,0,result.stderr)
+
 if __name__=='__main__':unittest.main()
