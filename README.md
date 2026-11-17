@@ -4,7 +4,9 @@ Synology DS920+에서 Docker로 실행하고, 갤럭시·iPhone 브라우저와 
 
 **처음 설치:** [Synology A to Z 설치 안내](setupmanual.md)
 
-**안드로이드 앱:** [APK 설치 및 사용 안내](android/README.md) · [APK 다운로드 폴더](downloads/)
+**안드로이드 앱·위젯:** [APK 설치 및 사용 안내](android/README.md) · [APK 다운로드 폴더](downloads/)
+
+**iPhone 앱·위젯 소스:** [iOS 설치·서명 조건 및 빌드 안내](ios/README.md) — 서명된 iPhone 설치 파일은 아직 제공하지 않습니다.
 
 v1.2.0은 새 폴더 `docker/famical`, 이미지 `famical:1.2.0`, 컨테이너 `famical`, 데이터 볼륨 `famical-data`를 사용합니다. 이전 버전의 `family-calendar-data`는 자동으로 연결하지 않습니다. 기존 계정·일정을 유지하려면 볼륨을 별도로 이전해야 하며, 이 안내서는 새 설치 기준입니다.
 

@@ -34,3 +34,7 @@ initial-admin.env
 # Android signing material
 *.jks
 *.keystore
+
+# Apple signing material
+*.p12
+*.mobileprovision

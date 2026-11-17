@@ -89,7 +89,7 @@ public class MainActivity extends Activity {
         ws.setAllowFileAccess(false); ws.setAllowContentAccess(false);
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         ws.setJavaScriptCanOpenWindowsAutomatically(false); ws.setSupportMultipleWindows(false);
-        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.0.0");
+        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.1.0");
         WebView.setWebContentsDebuggingEnabled(false);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(browser,false);
@@ -159,11 +159,17 @@ public class MainActivity extends Activity {
                 preferences.edit().putString("server",server).apply();
                 if(changed) {
                     WebStorage.getInstance().deleteAllData(); browser.clearHistory(); browser.clearCache(true);
-                    CookieManager.getInstance().removeAllCookies(done->loadServer());
+                    CookieManager.getInstance().removeAllCookies(done->{ loadServer();CalendarWidget.refreshAll(this); });
                 } else loadServer();
             } catch(IllegalArgumentException e) { addressError.setText(e.getMessage()); }
         });
-        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.0.0 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
+        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.1.0 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
+        android.widget.CheckBox privateEvents=new android.widget.CheckBox(this);
+        privateEvents.setText("위젯에 나의 개인 일정 표시");
+        privateEvents.setChecked(preferences.getBoolean("widget_private",false));
+        privateEvents.setOnCheckedChangeListener((v,checked)->{preferences.edit().putBoolean("widget_private",checked).remove("widget_lines").remove("widget_day").apply();CalendarWidget.refreshAll(this);});
+        form.addView(privateEvents);
+        TextView widgetNote=text("홈 화면을 길게 누른 뒤 위젯 → 우리 가족 달력을 추가하세요. 위젯은 월 달력·교대조·오늘 일정 최대 3개를 표시합니다. 갱신은 기기 정책에 따라 지연될 수 있습니다.",13);form.addView(widgetNote);
         settingsPanel.addView(form); settingsPanel.setVisibility(View.GONE);
         root.addView(settingsPanel,new LinearLayout.LayoutParams(-1,0,1));
     }
@@ -190,7 +196,20 @@ public class MainActivity extends Activity {
         else finish();
     }
     @SuppressWarnings("deprecation") @Override public void onBackPressed() { handleBack(); }
-    @Override protected void onPause() { super.onPause(); browser.onPause(); CookieManager.getInstance().flush(); }
+    @Override protected void onPause() {
+        browser.evaluateJavascript("localStorage.getItem('familyCalendar.shift')", raw -> {
+            try {
+                Object value=new org.json.JSONTokener(raw).nextValue();
+                if(value instanceof String) {
+                    org.json.JSONObject settings=new org.json.JSONObject((String)value);
+                    String team=settings.optString("team","A");
+                    preferences.edit().putString("widget_team","B".equals(team)?"B":"A").putBoolean("widget_shift",settings.optBoolean("on",true)).apply();
+                }
+            } catch(org.json.JSONException ignored) {}
+            CookieManager.getInstance().flush();CalendarWidget.refreshAll(this);
+        });
+        super.onPause(); browser.onPause(); CookieManager.getInstance().flush();CalendarWidget.refreshAll(this);
+    }
     @Override protected void onResume() { super.onResume(); if(browser!=null) browser.onResume(); }
     @Override protected void onDestroy() {
         if(browser!=null) { content.removeView(browser);browser.destroy(); }

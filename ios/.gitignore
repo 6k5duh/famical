@@ -1,0 +1,9 @@
+Generated/
+*.xcodeproj/
+.build/
+build/
+DerivedData/
+*.xcarchive/
+*.ipa
+*.p12
+*.mobileprovision

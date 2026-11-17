@@ -1,15 +1,22 @@
 {
   "application_id": "org.famical.calendar",
-  "version_name": "1.0.0",
-  "version_code": 1,
+  "version_name": "1.1.0",
+  "version_code": 2,
   "min_sdk": 26,
   "target_sdk": 35,
   "build_type": "debug",
-  "signing": "Android debug certificate; APK v2 verified",
-  "apk_sha256": "04652510c746e4a2fdeaf355fb2f6256f7d3bda978bf4bb2f9087a4a165dde3c",
-  "apk_bytes": 20857,
+  "widget": {
+    "monthly_calendar": true,
+    "today_events": 3,
+    "shift_shading": true,
+    "refresh_request_minutes": 30,
+    "private_events_default": false
+  },
+  "signing": "Same debug certificate as v1.0.0; APK v2 verified",
+  "apk_sha256": "a3d58c035af869d9d69ad90562170aa9243a633755aed549bfc1fd03f7f8a0cf",
+  "apk_bytes": 48204,
   "unit_tests": {
-    "tests": 3,
+    "tests": 6,
     "failures": 0
   },
   "lint": {
