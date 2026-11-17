@@ -1,8 +1,11 @@
 name: iOS app and widget build
 on:
   push:
-    paths: ['ios/**', '.github/workflows/ios-build.yml']
+    paths: ['ios/App/**', 'ios/Shared/**', 'ios/Widget/**', 'ios/Core/**', 'ios/project.yml', '.github/workflows/ios-build.yml']
   workflow_dispatch:
+concurrency:
+  group: famical-ios-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

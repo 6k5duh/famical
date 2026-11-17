@@ -41,6 +41,7 @@ struct CalendarWidgetView:View {
                 Text(entry.snapshot.date,style:.time)
             }.font(.system(size:9)).foregroundStyle(.secondary)
         }
+        .padding(family == .systemMedium ? 10:12)
         .foregroundStyle(green)
         .containerBackground(Color(red:246/255,green:245/255,blue:239/255),for:.widget)
         .widgetURL(URL(string:"famical://calendar"))
@@ -92,5 +93,6 @@ struct FamicalWidget:Widget {
             .configurationDisplayName("우리 가족 달력")
             .description("월 달력, 오늘 일정과 교대조를 확인합니다.")
             .supportedFamilies([.systemSmall,.systemMedium,.systemLarge])
+            .contentMarginsDisabled()
     }
 }
