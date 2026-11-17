@@ -1,0 +1,23 @@
+services:
+  calendar:
+    build: .
+    container_name: family-calendar
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8000"
+    environment:
+      DATA_DIR: /data
+      COOKIE_SECURE: "true"
+      TZ: Asia/Seoul
+    volumes:
+      - calendar-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+volumes:
+  calendar-data:
+    name: family-calendar-data

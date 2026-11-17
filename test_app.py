@@ -1,0 +1,54 @@
+import os, tempfile, unittest, importlib, json, subprocess
+from pathlib import Path
+
+class CalendarTest(unittest.TestCase):
+ @classmethod
+ def setUpClass(cls):
+  cls.tmp=tempfile.TemporaryDirectory();os.environ['DATA_DIR']=cls.tmp.name
+  import app
+  cls.m=app; cls.app=app.app;cls.app.config['TESTING']=True
+  with app.db() as c:
+   for i in range(4):c.execute('INSERT INTO users(username,name,password,admin) VALUES(?,?,?,?)',(f'user{i}',f'가족{i}',app.generate_password_hash('strong-password-123'),int(i==0)))
+ def client(self,i):
+  c=self.app.test_client();token=c.get('/api/me').json['csrf'];r=c.post('/api/login',json={'username':f'user{i}','password':'strong-password-123'},headers={'X-CSRF-Token':token});self.assertEqual(r.status_code,200)
+  token=c.get('/api/me').json['csrf'];return c,{'X-CSRF-Token':token}
+ def event(self,**kw):return dict(title='생일',day='2026-11-17',clock='',note='',calendar_type='solar',annual=False,leap=False,**kw) if not kw else {**self.event(),**kw}
+ def test_shared_and_authorization(self):
+  anon=self.app.test_client();self.assertEqual(anon.get('/api/events?month=2026-11').status_code,401)
+  c,h=self.client(1);self.assertEqual(c.post('/api/events',json=self.event()).status_code,403)
+  self.assertEqual(c.post('/api/events',json=self.event(),headers=h).status_code,200)
+  rows=c.get('/api/events?month=2026-11').json;eid=next(e['id'] for e in rows if e['title']=='생일');uid=c.get('/api/me').json['user']['id']
+  for i in range(4):
+   other,oh=self.client(i);shared=other.get('/api/events?month=2026-11').json;self.assertIn(eid,[e['id'] for e in shared]);self.assertTrue(any(e['owner']==uid for e in shared))
+  other,oh=self.client(2);self.assertEqual(other.put(f'/api/events/{eid}',json=self.event(title='변경'),headers=oh).status_code,403);self.assertEqual(other.delete(f'/api/events/{eid}',headers=oh).status_code,403)
+  self.assertEqual(c.put(f'/api/events/{eid}',json=self.event(title='작성자 수정'),headers=h).status_code,200)
+  admin,ah=self.client(0);self.assertEqual(admin.delete(f'/api/events/{eid}',headers=ah).status_code,200)
+ def test_lunar_and_annual(self):
+  c,h=self.client(1)
+  # 2026 lunar New Year is February 17; lunar February 30 is valid even when not a solar date.
+  for d in [self.event(title='음력 설',day='2026-01-01',calendar_type='lunar',annual=True),self.event(title='음력 2월30',day='2024-02-30',calendar_type='lunar'),self.event(title='윤년 생일',day='2024-02-29',annual=True)]:
+   self.assertEqual(c.post('/api/events',json=d,headers=h).status_code,200)
+  rows=c.get('/api/events?month=2026-02').json
+  self.assertEqual(next(e for e in rows if e['title']=='음력 설')['day'],'2026-02-17')
+  self.assertEqual(next(e for e in rows if e['title']=='음력 설')['source_day'],'2026-01-01')
+  self.assertNotIn('윤년 생일',[e['title'] for e in rows])
+  self.assertIn('윤년 생일',[e['title'] for e in c.get('/api/events?month=2028-02').json])
+  self.assertEqual(next(e for e in c.get('/api/events?month=2027-02').json if e['title']=='음력 설')['day'],'2027-02-07')
+  moon=c.get('/api/lunar?month=2026-02').json;self.assertEqual(moon['2026-02-17'],{'month':1,'day':1,'leap':False})
+  self.assertEqual(c.post('/api/events',json=self.event(day='2026-01-01',calendar_type='lunar',leap=True),headers=h).status_code,400)
+  self.assertEqual(c.post('/api/events',json=self.event(day='2026-02-30'),headers=h).status_code,400)
+ def test_xss_and_session(self):
+  c,h=self.client(3);self.assertEqual(c.post('/api/events',json=self.event(title='<script>alert(1)</script>'),headers=h).status_code,200)
+  r=c.get('/');self.assertIn("script-src 'self'",r.headers['Content-Security-Policy']);self.assertNotIn('<script>alert(1)</script>',r.text)
+  self.assertEqual(c.post('/api/logout',headers=h).status_code,200);self.assertEqual(c.get('/api/events?month=2026-11').status_code,401)
+ def test_leap_month_policy(self):
+  e=self.event(day='2025-06-01',calendar_type='lunar',annual=1,leap=1)
+  self.assertEqual(list(self.m.occurrences(e,2025)),['2025-07-25'])
+  self.assertFalse(any(s.startswith('2026-') for s in self.m.occurrences(e,2026)))
+ def test_password(self):
+  c,h=self.client(3);self.assertEqual(c.post('/api/password',json={'old':'bad','new':'another-strong-password'},headers=h).status_code,400)
+ def test_persistence(self):
+  # Re-import uses the same database and signing key.
+  before=self.app.secret_key;self.assertEqual(importlib.reload(self.m).app.secret_key,before)
+  with self.m.db() as c:self.assertEqual(c.execute('SELECT count(*) FROM users').fetchone()[0],4)
+if __name__=='__main__':unittest.main()

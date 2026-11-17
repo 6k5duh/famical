@@ -1,0 +1,29 @@
+# Python / virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+# Local configuration and authentication
+.env
+.env.*
+!.env.example
+secret.key
+*.pem
+*.key
+# Family accounts, calendar data, and backups
+data/
+*-data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.tar.gz
+*.zip
+preview-accounts.json
+# Local preview and logs
+*.log
+*.pid
+chromium-*/
+.DS_Store
