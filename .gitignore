@@ -27,3 +27,6 @@ preview-accounts.json
 *.pid
 chromium-*/
 .DS_Store
+
+# Local initial administrator settings (never commit passwords)
+initial-admin.env

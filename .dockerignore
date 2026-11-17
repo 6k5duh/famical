@@ -13,3 +13,6 @@ secret.key
 .env.*
 *.log
 *.pid
+
+initial-admin.env
+initial-admin.env.example

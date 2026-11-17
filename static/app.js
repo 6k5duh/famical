@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel} from './calendar-layout.mjs';
+import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.2.0';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, cursor = new Date(), requestNo = 0;
 const key = 'familyCalendar.shift';
@@ -20,6 +20,7 @@ async function api(path, method='GET', body) {
 }
 function say(s) { $('message').textContent=s; }
 function show() {
+  $('membersButton').hidden=!me?.admin;
   $('login').hidden=!!me; $('calendar').hidden=!me;
   $('who').textContent=me ? `${me.name} 님` : '';
   if (!me) { events=[]; $('grid').replaceChildren(); }
@@ -129,3 +130,24 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&me)load()
 setInterval(()=>{if(!document.hidden&&me&&!$('editor').open)load();},30000);
 if('serviceWorker'in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 boot();
+
+async function loadMembers() {
+  const rows=await api('users');
+  $('membersList').replaceChildren();
+  for(const u of rows) {
+    const item=document.createElement('p');
+    item.textContent=`${u.name} (${u.username}) · ${u.admin?'관리자':'가족'}`;
+    $('membersList').append(item);
+  }
+}
+$('membersButton').onclick=async()=>{
+  $('memberForm').reset(); $('memberError').textContent='';
+  try{await loadMembers();$('membersDialog').showModal();}catch(e){say(e.message);}
+};
+$('membersClose').onclick=()=>$('membersDialog').close();
+$('memberForm').onsubmit=async e=>{
+  e.preventDefault();$('memberSave').disabled=true;
+  const d=Object.fromEntries(new FormData(e.target));d.admin=e.target.elements.admin.checked;
+  try{await api('users','POST',d);e.target.reset();$('memberError').textContent='계정을 추가했습니다.';await loadMembers();}
+  catch(e){$('memberError').textContent=e.message;}finally{$('memberSave').disabled=false;}
+};

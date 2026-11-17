@@ -94,4 +94,37 @@ class CalendarTest(unittest.TestCase):
    result=subprocess.run([sys.executable,'-c',"import app; c=app.db(); r=dict(c.execute('SELECT * FROM events').fetchone()); assert r['end_day']==r['day'] and r['visibility']=='shared' and r['color']=='sage'; assert c.execute('SELECT count(*) FROM users').fetchone()[0]==1"],env=env,capture_output=True,text=True)
    self.assertEqual(result.returncode,0,result.stderr)
 
+ def test_admin_user_management(self):
+  admin,h=self.client(0);family,fh=self.client(1)
+  payload={'username':'newmember','name':'추가 가족','password':'another-test-password-123','admin':False}
+  try:
+   self.assertEqual(family.get('/api/users').status_code,403)
+   self.assertEqual(family.post('/api/users',json=payload,headers=fh).status_code,403)
+   self.assertEqual(admin.post('/api/users',json={**payload,'password':'short'},headers=h).status_code,400)
+   self.assertEqual(admin.post('/api/users',json=payload,headers=h).status_code,201)
+   self.assertEqual(admin.post('/api/users',json=payload,headers=h).status_code,409)
+   rows=admin.get('/api/users').json
+   self.assertTrue(any(u['username']=='newmember' for u in rows));self.assertTrue(all('password' not in u for u in rows))
+   new=self.app.test_client();token=new.get('/api/me').json['csrf']
+   self.assertEqual(new.post('/api/login',json={'username':payload['username'],'password':payload['password']},headers={'X-CSRF-Token':token}).status_code,200)
+  finally:
+   with self.m.db() as c:c.execute("DELETE FROM users WHERE username='newmember'")
+ def test_initial_admin_bootstrap(self):
+  import sys
+  with tempfile.TemporaryDirectory() as tmp:
+   env={**os.environ,'DATA_DIR':tmp,'INITIAL_ADMIN_USERNAME':'initialadmin','INITIAL_ADMIN_NAME':'첫 관리자','INITIAL_ADMIN_PASSWORD':'test-initial-password-123'}
+   code="import app; c=app.db(); u=c.execute('SELECT * FROM users').fetchone(); assert u['username']=='initialadmin' and u['admin']==1; assert app.check_password_hash(u['password'],'test-initial-password-123')"
+   for pw in ('test-initial-password-123','changed-env-password-456'):
+    result=subprocess.run([sys.executable,'-c',code],env={**env,'INITIAL_ADMIN_PASSWORD':pw},capture_output=True,text=True)
+    self.assertEqual(result.returncode,0,result.stderr)
+   with tempfile.TemporaryDirectory() as empty:
+    result=subprocess.run([sys.executable,'-c','import app'],env={**env,'DATA_DIR':empty,'INITIAL_ADMIN_PASSWORD':''},capture_output=True,text=True)
+    self.assertNotEqual(result.returncode,0);self.assertIn('INITIAL_ADMIN_PASSWORD',result.stderr)
+ def test_version_identification(self):
+  c=self.app.test_client();r=c.get('/')
+  self.assertIn('Famical v1.2.0',r.text);self.assertIn('?v=1.2.0',r.text)
+  self.assertEqual(r.headers['Cache-Control'],'no-store')
+  self.assertEqual(r.headers['X-Famical-Version'],'1.2.0')
+  self.assertEqual(c.get('/api/version').json,{'version':'1.2.0'})
+
 if __name__=='__main__':unittest.main()

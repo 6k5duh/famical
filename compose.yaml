@@ -1,10 +1,13 @@
 services:
   calendar:
     build: .
-    container_name: family-calendar
+    image: famical:1.2.0
+    container_name: famical
     restart: unless-stopped
     ports:
       - "127.0.0.1:8090:8000"
+    env_file:
+      - ./initial-admin.env
     environment:
       DATA_DIR: /data
       COOKIE_SECURE: "true"
@@ -20,4 +23,4 @@ services:
       - /tmp
 volumes:
   calendar-data:
-    name: family-calendar-data
+    name: famical-data

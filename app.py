@@ -7,6 +7,8 @@ from functools import wraps
 from flask import Flask, request, session, jsonify, render_template, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 
+APP_VERSION = '1.2.0'
+
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
 keyfile = DATA / 'secret.key'
@@ -32,6 +34,21 @@ CREATE TABLE IF NOT EXISTS attempts(username TEXT PRIMARY KEY, count INTEGER, si
     for name, definition in [('calendar_type', "TEXT NOT NULL DEFAULT 'solar'"), ('annual', 'INTEGER NOT NULL DEFAULT 0'), ('leap', 'INTEGER NOT NULL DEFAULT 0'), ('end_day', "TEXT NOT NULL DEFAULT ''"), ('visibility', "TEXT NOT NULL DEFAULT 'shared'"), ('color', "TEXT NOT NULL DEFAULT 'sage'")]:
         if name not in existing: c.execute(f'ALTER TABLE events ADD COLUMN {name} {definition}')
     c.execute("UPDATE events SET end_day=day WHERE end_day=''")
+
+# This runs only when the volume contains no accounts. Existing accounts are preserved.
+with db() as c:
+    c.execute('BEGIN IMMEDIATE')
+    if not c.execute('SELECT 1 FROM users LIMIT 1').fetchone():
+        initial_password=os.environ.get('INITIAL_ADMIN_PASSWORD','')
+        if 'INITIAL_ADMIN_PASSWORD' in os.environ and not initial_password:
+            raise ValueError('Set INITIAL_ADMIN_PASSWORD in initial-admin.env before the first start (12-200 characters).')
+        if initial_password:
+            initial_username=os.environ.get('INITIAL_ADMIN_USERNAME','admin')
+            initial_name=os.environ.get('INITIAL_ADMIN_NAME','관리자')
+            if not re.fullmatch(r'[a-zA-Z0-9_.-]{1,40}',initial_username) or not 12<=len(initial_password)<=200 or not 1<=len(initial_name)<=80:
+                raise ValueError('Initial admin: username must be 1-40 ASCII letters/numbers/_.-, password 12-200 characters, name 1-80 characters.')
+            c.execute('INSERT INTO users(username,name,password,admin) VALUES(?,?,?,1)',(initial_username,initial_name,generate_password_hash(initial_password)))
+
 def user():
     with db() as c: return c.execute('SELECT id, username, name, admin FROM users WHERE id=?',(session.get('uid'),)).fetchone()
 def required(fn):
@@ -49,7 +66,8 @@ def headers(r):
     r.headers['X-Content-Type-Options']='nosniff'
     r.headers['Referrer-Policy']='same-origin'
     r.headers['Content-Security-Policy']="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-    if request.path.startswith('/api/'): r.headers['Cache-Control']='no-store'
+    r.headers['X-Famical-Version']=APP_VERSION
+    if request.path=='/' or request.path.startswith('/api/'): r.headers['Cache-Control']='no-store'
     return r
 @app.errorhandler(400)
 @app.errorhandler(401)
@@ -60,7 +78,26 @@ def headers(r):
 @app.errorhandler(429)
 def error(e): return jsonify(error={400:'입력값을 확인해 주세요.',401:'로그인이 필요합니다.',403:'권한이 없거나 세션이 만료되었습니다. 새로고침해 주세요.',404:'항목을 찾을 수 없습니다.',409:'정보가 변경되었습니다.',413:'입력 내용이 너무 깁니다.',429:'로그인 시도가 많습니다. 15분 후 다시 시도해 주세요.'}.get(e.code,'오류')), e.code
 @app.get('/')
-def index(): return render_template('index.html')
+def index(): return render_template('index.html', version=APP_VERSION)
+@app.get('/api/version')
+def version(): return jsonify(version=APP_VERSION)
+
+@app.route('/api/users',methods=['GET','POST'])
+@required
+def users():
+    if not user()['admin']: abort(403)
+    if request.method=='GET':
+        with db() as c: rows=c.execute('SELECT id,username,name,admin FROM users ORDER BY id').fetchall()
+        return jsonify([dict(r) for r in rows])
+    d=request.get_json() or {}
+    username=str(d.get('username','')).strip(); name=str(d.get('name','')).strip()
+    password=str(d.get('password','')); admin=d.get('admin',False)
+    if not re.fullmatch(r'[a-zA-Z0-9_.-]{1,40}',username) or not 1<=len(name)<=80 or not 12<=len(password)<=200 or type(admin) is not bool: abort(400)
+    try:
+        with db() as c: c.execute('INSERT INTO users(username,name,password,admin) VALUES(?,?,?,?)',(username,name,generate_password_hash(password),int(admin)))
+    except sqlite3.IntegrityError: return jsonify(error='이미 사용 중인 아이디입니다.'),409
+    return jsonify(ok=True),201
+
 @app.get('/api/me')
 def me():
     session.setdefault('csrf',secrets.token_hex(32))
