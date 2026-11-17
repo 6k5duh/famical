@@ -30,3 +30,7 @@ chromium-*/
 
 # Local initial administrator settings (never commit passwords)
 initial-admin.env
+
+# Android signing material
+*.jks
+*.keystore
