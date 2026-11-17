@@ -22,7 +22,7 @@ async function create() {
  class Color {constructor(value){this.value=value;}};class Size{constructor(w,h){this.width=w;this.height=h;}}
  const Font={boldSystemFont:s=>s,systemFont:s=>s};
  const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
- const f=await new AsyncFunction('Keychain','Request','Alert','Font','Color','ListWidget','Size',source+'\nreturn {normalizeServer,shiftFor,visibleToday,loginInteractive,readSnapshot,buildWidget,load};')(Keychain,Request,Alert,Font,Color,Node,Size);
+ const f=await new AsyncFunction('Keychain','Request','Alert','Font','Color','ListWidget','Size',source+'\nreturn {normalizeServer,shiftFor,visibleToday,monthEntries,eventColors,loginInteractive,readSnapshot,buildWidget,load};')(Keychain,Request,Alert,Font,Color,Node,Size);
  return {f,storage,password,expire:()=>expired=true};
 }
 test('only HTTPS origins are accepted',async()=>{
@@ -39,6 +39,15 @@ test('CSRF login, session storage and expiry clearing',async()=>{
  const {f,storage,password,expire}=await create();assert.equal(await f.loginInteractive(),true);
  assert(![...storage.values()].some(v=>v.includes(password)));
  const cfg=f.load('config');const snapshot=await f.readSnapshot(cfg,new Date(2026,10,17));assert.equal(snapshot.events.length,1);assert.equal(snapshot.events[0].title,'공유 여행');
- for(const family of ['small','medium','large']){const w=f.buildWidget(cfg,snapshot,new Date(2026,10,17),family);assert.equal(w.url,cfg.server);assert(w.children.length>0);}
+ for(const family of ['small','medium','large']){const w=f.buildWidget(cfg,snapshot,new Date(2026,10,17),family);assert.equal(w.url,cfg.server);assert(w.children.length>0);assert.equal(w.refreshAfterDate.getTime()-new Date(2026,10,17).getTime(),3600000);}
  expire();assert.equal((await f.readSnapshot(cfg,new Date(2026,10,17))).events.length,0);assert.equal(f.load('cookie'),null);assert.equal(f.load('cache'),null);
+});
+
+test('future range markers preserve colors and respect private visibility',async()=>{
+ const {f}=await create();const cfg={includePrivate:false};
+ const all=[{day:'2026-11-24',end_day:'2026-11-26',color:'blue',visibility:'shared'},{day:'2026-11-25',color:'rose',visibility:'private'}];
+ const month=f.monthEntries(all,cfg);assert.equal(month.length,1);
+ assert.deepEqual(f.eventColors(month,new Date(2026,10,26),cfg),['3568a1']);
+ assert.deepEqual(f.eventColors(month,new Date(2026,10,27),cfg),[]);
+ assert.equal(f.eventColors(all,new Date(2026,10,25),{includePrivate:true}).length,2);
 });

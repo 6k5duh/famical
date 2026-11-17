@@ -6,6 +6,7 @@ struct WidgetSnapshot: Codable {
     let stamp: String
     let events: [CalendarEvent]
     let message: String
+    var monthEvents: [CalendarEvent]? = nil
 }
 
 enum SharedStore {

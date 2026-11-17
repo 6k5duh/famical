@@ -26,6 +26,13 @@ function visibleToday(events,date,cfg) {
   const day=stamp(date);
   return events.filter(e=>e.day<=day&&(e.end_day||e.day)>=day&&(cfg.includePrivate||e.visibility!=="private")).slice(0,3);
 }
+function monthEntries(events,cfg) {
+  return events.filter(e=>cfg.includePrivate||e.visibility!=="private").map(e=>({day:e.day,end_day:e.end_day||e.day,color:e.color||"sage",visibility:e.visibility||"shared"}));
+}
+function eventColors(events,date,cfg) {
+  const day=stamp(date),palette={blue:"3568a1",rose:"a74d6d",amber:"9d5c1d",violet:"7454a1",sage:"36705b"};
+  return events.filter(e=>e.day<=day&&(e.end_day||e.day)>=day&&(cfg.includePrivate||e.visibility!=="private")).slice(0,3).map(e=>palette[e.color]||palette.sage);
+}
 function sessionCookie(response) {
   let value=(response.cookies||[]).find(c=>c.name==="session")?.value;
   if(!value) {
@@ -73,7 +80,7 @@ async function readSnapshot(cfg,date) {
     const response=await api(cfg.server,"events?month="+stamp(date).slice(0,7),cookie);
     if(response.status===401||response.status===403){remove("cookie");remove("cache");return {events:[],message:"로그인 만료 · 스크립트에서 재로그인",time:null};}
     if(response.status!==200||!Array.isArray(response.data))throw Error("Server response");
-    const snapshot={day:stamp(date),events:visibleToday(response.data,date,cfg),message:"",time:date.toISOString()};
+    const snapshot={day:stamp(date),events:visibleToday(response.data,date,cfg),monthEvents:monthEntries(response.data,cfg),message:"",time:date.toISOString()};
     save("cache",snapshot);return snapshot;
   } catch {
     const old=load("cache");
@@ -83,9 +90,9 @@ async function readSnapshot(cfg,date) {
 function label(stack,text,size,bold=false,color="285449") {
   const v=stack.addText(String(text));v.font=bold?Font.boldSystemFont(size):Font.systemFont(size);v.textColor=new Color(color);v.lineLimit=1;return v;
 }
-function monthGrid(parent,date,cfg,large) {
+function monthGrid(parent,date,cfg,large,events) {
   const grid=parent.addStack();grid.layoutVertically();grid.spacing=1;
-  const weekdays=["일","월","화","수","목","금","토"],width=large?35:16,height=large?21:10;
+  const weekdays=["일","월","화","수","목","금","토"],width=large?35:16,height=large?24:13;
   const head=grid.addStack();head.spacing=1;
   weekdays.forEach(s=>{const cell=head.addStack();cell.size=new Size(width,10);const t=label(cell,s,large?10:8);t.centerAlignText();});
   const first=new Date(date.getFullYear(),date.getMonth(),1).getDay(),days=new Date(date.getFullYear(),date.getMonth()+1,0).getDate();
@@ -96,8 +103,10 @@ function monthGrid(parent,date,cfg,large) {
       if(day<1||day>days)continue;
       const current=new Date(date.getFullYear(),date.getMonth(),day),shift=shiftFor(current,cfg);
       cell.backgroundColor=new Color(col===0||col===6?"f3dfe1":shift.endsWith("야간")?"f7efbb":shift?"dce9d8":"ffffff");
-      if(day===date.getDate()){cell.borderWidth=1;cell.borderColor=new Color("285449");}
-      cell.addSpacer();const t=label(cell,day,large?12:8,day===date.getDate());t.centerAlignText();cell.addSpacer();
+      if(day===date.getDate()){cell.borderWidth=1;cell.borderColor=new Color("E53935");}
+      cell.layoutVertically();const number=cell.addStack();number.addSpacer();
+      const t=label(number,day,large?12:8,day===date.getDate());t.centerAlignText();number.addSpacer();
+      const colors=eventColors(events,current,cfg);if(colors.length){const bars=cell.addStack();bars.spacing=1;for(const color of colors){const bar=bars.addStack();bar.size=new Size((width-(colors.length-1))/colors.length,2);bar.backgroundColor=new Color(color);}}
     }
   }
 }
@@ -113,13 +122,13 @@ function eventList(parent,snapshot,limit) {
 }
 function buildWidget(cfg,snapshot,date,family) {
   const widget=new ListWidget();widget.backgroundColor=new Color("f6f5ef");widget.setPadding(10,10,10,10);widget.spacing=4;
-  widget.refreshAfterDate=new Date(date.getTime()+30*60*1000);if(cfg.server)widget.url=cfg.server;
+  widget.refreshAfterDate=new Date(date.getTime()+60*60*1000);if(cfg.server)widget.url=cfg.server;
   const heading=widget.addStack();heading.spacing=5;
   label(heading,`${date.getMonth()+1}월 ${date.getDate()}일 ${["일","월","화","수","목","금","토"][date.getDay()]}요일`,15,true);
   const shift=shiftFor(date,cfg);if(shift){heading.addSpacer();label(heading,shift,10);}
   if(family==="small")eventList(widget,snapshot,2);
-  else if(family==="medium") {const body=widget.addStack();body.spacing=12;monthGrid(body,date,cfg,false);eventList(body,snapshot,2);}
-  else {monthGrid(widget,date,cfg,true);eventList(widget,snapshot,3);}
+  else if(family==="medium") {const body=widget.addStack();body.spacing=12;monthGrid(body,date,cfg,false,snapshot.monthEvents||snapshot.events);eventList(body,snapshot,2);}
+  else {monthGrid(widget,date,cfg,true,snapshot.monthEvents||snapshot.events);eventList(widget,snapshot,3);}
   widget.addSpacer();
   const time=snapshot.time?new Date(snapshot.time):null;
   label(widget,snapshot.message||(time?`${String(time.getHours()).padStart(2,"0")}:${String(time.getMinutes()).padStart(2,"0")} 갱신` :"Scriptable에서 로그인해 주세요"),9,false,"65705a");

@@ -89,7 +89,7 @@ public class MainActivity extends Activity {
         ws.setAllowFileAccess(false); ws.setAllowContentAccess(false);
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         ws.setJavaScriptCanOpenWindowsAutomatically(false); ws.setSupportMultipleWindows(false);
-        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.1.1");
+        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.1.2");
         WebView.setWebContentsDebuggingEnabled(false);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(browser,false);
@@ -163,11 +163,11 @@ public class MainActivity extends Activity {
                 } else loadServer();
             } catch(IllegalArgumentException e) { addressError.setText(e.getMessage()); }
         });
-        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.1.1 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
+        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.1.2 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
         android.widget.CheckBox privateEvents=new android.widget.CheckBox(this);
         privateEvents.setText("위젯에 나의 개인 일정 표시");
         privateEvents.setChecked(preferences.getBoolean("widget_private",false));
-        privateEvents.setOnCheckedChangeListener((v,checked)->{preferences.edit().putBoolean("widget_private",checked).remove("widget_lines").remove("widget_day").apply();CalendarWidget.refreshAll(this);});
+        privateEvents.setOnCheckedChangeListener((v,checked)->{preferences.edit().putBoolean("widget_private",checked).remove("widget_lines").remove("widget_day").remove("widget_month_events").remove("widget_month").apply();CalendarWidget.refreshAll(this);});
         form.addView(privateEvents);
         TextView widgetNote=text("홈 화면을 길게 누른 뒤 위젯 → 우리 가족 달력을 추가하세요. 위젯은 월 달력·교대조·오늘 일정 최대 3개를 표시합니다. 갱신은 기기 정책에 따라 지연될 수 있습니다.",13);form.addView(widgetNote);
         settingsPanel.addView(form); settingsPanel.setVisibility(View.GONE);

@@ -29,12 +29,13 @@ enum WidgetService {
                 return WidgetSnapshot(date:now,stamp:stamp,events:[],message:"앱에서 로그인·서버 상태를 확인해 주세요")
             }
             let all=try JSONDecoder().decode([CalendarEvent].self,from:data)
-            let events=Array(all.filter { $0.occurs(on:stamp) && (includePrivate || $0.visibility != "private") }.prefix(5))
-            let snapshot=WidgetSnapshot(date:now,stamp:stamp,events:events,message:events.isEmpty ? "오늘 표시할 일정이 없습니다" : "")
+            let monthEvents=all.filter { includePrivate || $0.visibility != "private" }
+            let events=Array(monthEvents.filter { $0.occurs(on:stamp) }.prefix(5))
+            let snapshot=WidgetSnapshot(date:now,stamp:stamp,events:events,message:events.isEmpty ? "오늘 표시할 일정이 없습니다" : "",monthEvents:monthEvents)
             SharedStore.snapshot=snapshot;return snapshot
         } catch {
             if let old=SharedStore.snapshot,old.stamp==stamp {
-                return WidgetSnapshot(date:old.date,stamp:stamp,events:old.events,message:"연결 실패 · 마지막 갱신 내용")
+                return WidgetSnapshot(date:old.date,stamp:stamp,events:old.events,message:"연결 실패 · 마지막 갱신 내용",monthEvents:old.monthEvents)
             }
             return WidgetSnapshot(date:now,stamp:stamp,events:[],message:"서버에 연결할 수 없습니다")
         }

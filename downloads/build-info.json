@@ -1,23 +1,23 @@
 {
   "application_id": "org.famical.calendar",
-  "version_name": "1.1.1",
-  "version_code": 3,
+  "version_name": "1.1.2",
+  "version_code": 4,
   "min_sdk": 26,
   "target_sdk": 35,
   "build_type": "debug",
   "widget": {
     "responsive_7_column_grid": true,
-    "automatic_date_font_sizing": true,
-    "handles_widget_resize": true,
-    "versioned_layout_for_launcher_refresh": true,
-    "today_events": 3,
+    "colored_markers_per_date": 3,
+    "includes_full_month_ranges": true,
+    "today_border": "red #E53935",
+    "automatic_refresh_request_minutes": 60,
     "private_events_default": false
   },
-  "signing": "Same debug certificate as v1.0.0/v1.1.0; APK v2 verified",
-  "apk_sha256": "019b8149729418a329d26d8569ded72cb321d2780bb788261219e0c8d5cdabd7",
-  "apk_bytes": 56577,
+  "signing": "Same debug certificate as previous APKs; APK v2 verified",
+  "apk_sha256": "7f7f97fb3cdd6e6581e6caa617c2ba1f022f030aa2cac76965d983d8a8d2b7ab",
+  "apk_bytes": 60685,
   "unit_tests": {
-    "tests": 10,
+    "tests": 14,
     "failures": 0
   },
   "render_test_sizes_dp": [
@@ -36,7 +36,7 @@
   ],
   "lint": {
     "errors": 0,
-    "warnings": 3
+    "warnings": 49
   },
   "physical_device_tested": false
 }

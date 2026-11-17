@@ -9,8 +9,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.webkit.CookieManager;
 import android.widget.RemoteViews;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -18,8 +16,6 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Executors;
 
@@ -47,13 +43,13 @@ public class CalendarWidget extends AppWidgetProvider {
         catch(RuntimeException e) { cookie=null; }
         String session=cookie==null?"":cookie;String fingerprint=hash(server+"\n"+session);
         boolean includePrivate=p.getBoolean("widget_private",false);
-        if(!fingerprint.equals(p.getString("widget_session",""))) p.edit().remove("widget_lines").remove("widget_day").remove("widget_time").putString("widget_session",fingerprint).apply();
+        if(!fingerprint.equals(p.getString("widget_session",""))) p.edit().remove("widget_lines").remove("widget_day").remove("widget_time").remove("widget_month_events").remove("widget_month").putString("widget_session",fingerprint).apply();
         render(context,"갱신 중");
         if(server.isEmpty() || session.isEmpty()) {
             clear(p);render(context,"앱에서 서버 설정·로그인해 주세요");if(pending!=null)pending.finish();return;
         }
         WORK.execute(()->{
-            String status;String lines=null;LocalDate today=LocalDate.now();
+            String status;String lines=null,monthEvents=null;LocalDate today=LocalDate.now();
             try {
                 String origin=ServerAddress.normalize(server);
                 HttpURLConnection conn=(HttpURLConnection)new URL(origin+"api/events?month="+YearMonth.from(today)).openConnection();
@@ -67,26 +63,20 @@ public class CalendarWidget extends AppWidgetProvider {
                         java.io.ByteArrayOutputStream buffer=new java.io.ByteArrayOutputStream();
                         byte[] bytes=new byte[4096];int count;try(java.io.InputStream in=conn.getInputStream()){while((count=in.read(bytes))!=-1){buffer.write(bytes,0,count);if(buffer.size()>2_000_000)throw new java.io.IOException("Response too large");}}
                         String body=buffer.toString("UTF-8");
-                        JSONArray events=new JSONArray(body);List<String> items=new ArrayList<>();
-                        for(int i=0;i<events.length()&&items.size()<3;i++) {
-                            JSONObject e=events.getJSONObject(i);
-                            if(!WidgetSummary.occursToday(e.getString("day"),e.optString("end_day",e.getString("day")),today))continue;
-                            if("private".equals(e.optString("visibility"))&&!includePrivate)continue;
-                            String clock=e.optString("clock","");items.add((clock.isEmpty()?"종일":clock)+"  "+e.getString("title"));
-                        }
-                        lines=items.isEmpty()?"오늘 표시할 일정이 없습니다":String.join("\n",items);
+                        WidgetEvents.Snapshot snapshot=WidgetEvents.parse(body,today,includePrivate);
+                        lines=snapshot.todayLines;monthEvents=snapshot.monthEvents;
                         status=java.time.LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))+" 갱신";
                     }
                 } finally { conn.disconnect(); }
             } catch(Exception e) { status="연결 실패 · 마지막 갱신 내용"; }
-            String result=lines,message=status;
+            String result=lines,markers=monthEvents,message=status;
             MAIN.post(()->{
                 String current=p.getString("server","");String currentCookie;
                 try { currentCookie=current.isEmpty()?"":CookieManager.getInstance().getCookie(current); }catch(RuntimeException e){currentCookie="";}
                 if(includePrivate==p.getBoolean("widget_private",false) && fingerprint.equals(hash(current+"\n"+(currentCookie==null?"":currentCookie)))) {
                     if(result!=null) {
                         if(result.isEmpty()) clear(p);
-                        else p.edit().putString("widget_lines",result).putString("widget_day",today.toString()).putString("widget_time",message).apply();
+                        else p.edit().putString("widget_lines",result).putString("widget_day",today.toString()).putString("widget_time",message).putString("widget_month_events",markers==null?"[]":markers).putString("widget_month",YearMonth.from(today).toString()).apply();
                     }
                     render(context,message);
                 }
@@ -94,7 +84,7 @@ public class CalendarWidget extends AppWidgetProvider {
             });
         });
     }
-    private static void clear(SharedPreferences p) { p.edit().remove("widget_lines").remove("widget_day").remove("widget_time").apply(); }
+    private static void clear(SharedPreferences p) { p.edit().remove("widget_lines").remove("widget_day").remove("widget_time").remove("widget_month_events").remove("widget_month").apply(); }
     private static String hash(String text) {
         try { byte[] bytes=MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));StringBuilder s=new StringBuilder();for(byte b:bytes)s.append(String.format(Locale.ROOT,"%02x",b));return s.toString(); }
         catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}

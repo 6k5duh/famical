@@ -14,7 +14,7 @@ struct CalendarProvider:TimelineProvider {
     func getTimeline(in context:Context,completion:@escaping(Timeline<CalendarEntry>)->Void) {
         Task {
             let now=Date();let snapshot=await WidgetService.refresh(now:now)
-            completion(Timeline(entries:[CalendarEntry(date:now,snapshot:snapshot)],policy:.after(now.addingTimeInterval(1800))))
+            completion(Timeline(entries:[CalendarEntry(date:now,snapshot:snapshot)],policy:.after(now.addingTimeInterval(3600))))
         }
     }
     private func sample() -> CalendarEntry { CalendarEntry(date:Date(),snapshot:WidgetSnapshot(date:Date(),stamp:CalendarMath.stamp(Date()),events:[CalendarEvent(id:1,title:"가족 일정",day:CalendarMath.stamp(Date()),endDay:CalendarMath.stamp(Date()),clock:"18:00")],message:"")) }
@@ -33,7 +33,7 @@ struct CalendarWidgetView:View {
             if family == .systemSmall { eventList(limit:2) }
             else if family == .systemMedium {
                 HStack(alignment:.top,spacing:12) { monthGrid.font(.system(size:9)).frame(maxWidth:.infinity);eventList(limit:2).frame(maxWidth:.infinity,alignment:.leading) }
-            } else { monthGrid;eventList(limit:4) }
+            } else { monthGrid;eventList(limit:3) }
             Spacer(minLength:0)
             HStack {
                 Text(entry.snapshot.message.isEmpty ? "우리 가족 달력" : entry.snapshot.message).lineLimit(1)
@@ -51,11 +51,9 @@ struct CalendarWidgetView:View {
             if entry.snapshot.events.isEmpty { Text(entry.snapshot.message).font(.caption).lineLimit(3) }
             ForEach(Array(entry.snapshot.events.prefix(limit)),id:\.id) { event in
                 HStack(spacing:5) {
-                    RoundedRectangle(cornerRadius:2).fill(barColor(event.color)).frame(width:3)
-                    VStack(alignment:.leading,spacing:1) {
-                        Text(event.clock.isEmpty ? "종일" : event.clock).font(.system(size:9)).foregroundStyle(.secondary)
-                        Text(event.title).font(.caption).lineLimit(1).privacySensitive()
-                    }
+                    RoundedRectangle(cornerRadius:2).fill(barColor(event.color)).frame(width:3,height:16)
+                    Text(event.clock.isEmpty ? "종일" : event.clock).font(.system(size:9)).foregroundStyle(.secondary)
+                    Text(event.title).font(.caption).lineLimit(1).privacySensitive()
                 }.fixedSize(horizontal:false,vertical:true)
             }
         }
@@ -67,9 +65,16 @@ struct CalendarWidgetView:View {
             ForEach(Array(cells.enumerated()),id:\.offset) { _,day in
                 if let day {
                     let date=CalendarMath.calendar.date(bySetting:.day,value:day,of:entry.date) ?? entry.date
-                    Text("\(day)").font(.system(size:family == .systemLarge ? 13:9,weight:day == CalendarMath.calendar.component(.day,from:entry.date) ? .bold:.regular))
-                        .frame(maxWidth:.infinity,minHeight:family == .systemLarge ? 22:11)
-                        .background(dayColor(date)).clipShape(RoundedRectangle(cornerRadius:3))
+                    let marked=(entry.snapshot.monthEvents ?? entry.snapshot.events).filter { $0.occurs(on:CalendarMath.stamp(date)) && (SharedStore.includePrivate || $0.visibility != "private") }
+                    VStack(spacing:0) {
+                        Text("\(day)").font(.system(size:family == .systemLarge ? 13:8,weight:day == CalendarMath.calendar.component(.day,from:entry.date) ? .bold:.regular))
+                        HStack(spacing:1) {
+                            ForEach(Array(marked.prefix(3).enumerated()),id:\.offset) { _,event in Capsule().fill(barColor(event.color)).frame(height:2) }
+                        }.frame(height:2)
+                    }
+                    .frame(maxWidth:.infinity,minHeight:family == .systemLarge ? 24:12)
+                    .background(dayColor(date)).clipShape(RoundedRectangle(cornerRadius:3))
+                    .overlay(RoundedRectangle(cornerRadius:3).stroke(day == CalendarMath.calendar.component(.day,from:entry.date) ? Color.red:Color.clear,lineWidth:2))
                 } else { Text(" ").font(.system(size:9)) }
             }
         }
