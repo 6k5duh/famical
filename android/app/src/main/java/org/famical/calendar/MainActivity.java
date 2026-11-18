@@ -51,6 +51,10 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         preferences = getSharedPreferences("famical", MODE_PRIVATE);
         server = preferences.getString("server", "");
+        if (server.isEmpty()) {
+            server = ServerAddress.DEFAULT_SERVER;
+            preferences.edit().putString("server", server).apply();
+        }
         buildScreen();
         CalendarSync.schedule(this);
         if (Build.VERSION.SDK_INT >= 33) {
@@ -90,7 +94,7 @@ public class MainActivity extends Activity {
         ws.setAllowFileAccess(false); ws.setAllowContentAccess(false);
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         ws.setJavaScriptCanOpenWindowsAutomatically(false); ws.setSupportMultipleWindows(false);
-        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.2.0");
+        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.2.1");
         WebView.setWebContentsDebuggingEnabled(false);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(browser,false);
@@ -146,11 +150,11 @@ public class MainActivity extends Activity {
     private void buildSettings() {
         settingsPanel=new ScrollView(this); LinearLayout form=panel();
         TextView heading=text("우리 가족 NAS 연결",25); form.addView(heading);
-        TextView detail=text("캘린더가 열리는 HTTPS 주소를 입력하세요.\n가족 모두 같은 주소를 사용하면 일정이 함께 공유됩니다.",15); form.addView(detail);
+        TextView detail=text("기본 가족 서버에 자동으로 연결합니다. 필요하면 HTTPS 주소를 변경할 수 있습니다.\n가족 모두 같은 주소를 사용하면 일정이 함께 공유됩니다.",15); form.addView(detail);
         TextView label=text("서버 주소",14); form.addView(label);
         serverInput=new EditText(this); serverInput.setSingleLine(true);
         serverInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        serverInput.setHint("https://calendar.example.com"); serverInput.setTextSize(16); form.addView(serverInput,new LinearLayout.LayoutParams(-1,-2));
+        serverInput.setHint(ServerAddress.DEFAULT_SERVER); serverInput.setTextSize(16); form.addView(serverInput,new LinearLayout.LayoutParams(-1,-2));
         addressError=text("",14); addressError.setTextColor(Color.rgb(166,60,53)); form.addView(addressError);
         Button connect=button("연결하기"); form.addView(connect);
         connect.setOnClickListener(v->{
@@ -166,7 +170,7 @@ public class MainActivity extends Activity {
                 } else loadServer();
             } catch(IllegalArgumentException e) { addressError.setText(e.getMessage()); }
         });
-        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.2.0 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
+        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.2.1 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
         android.widget.CheckBox privateEvents=new android.widget.CheckBox(this);
         privateEvents.setText("위젯에 나의 개인 일정 표시");
         privateEvents.setChecked(preferences.getBoolean("widget_private",false));

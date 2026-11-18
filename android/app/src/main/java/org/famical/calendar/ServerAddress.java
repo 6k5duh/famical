@@ -4,6 +4,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 final class ServerAddress {
+    static final String DEFAULT_SERVER = "https://famical.ymsh.synology.me/";
+
     private ServerAddress() {}
 
     static String normalize(String input) {
