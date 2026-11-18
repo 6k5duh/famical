@@ -7,7 +7,7 @@ from functools import wraps
 from flask import Flask, request, session, jsonify, render_template, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 
-APP_VERSION = '1.2.0'
+APP_VERSION = '1.3.0'
 
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -34,6 +34,17 @@ CREATE TABLE IF NOT EXISTS attempts(username TEXT PRIMARY KEY, count INTEGER, si
     for name, definition in [('calendar_type', "TEXT NOT NULL DEFAULT 'solar'"), ('annual', 'INTEGER NOT NULL DEFAULT 0'), ('leap', 'INTEGER NOT NULL DEFAULT 0'), ('end_day', "TEXT NOT NULL DEFAULT ''"), ('visibility', "TEXT NOT NULL DEFAULT 'shared'"), ('color', "TEXT NOT NULL DEFAULT 'sage'")]:
         if name not in existing: c.execute(f'ALTER TABLE events ADD COLUMN {name} {definition}')
     c.execute("UPDATE events SET end_day=day WHERE end_day=''")
+    user_columns={r[1] for r in c.execute('PRAGMA table_info(users)')}
+    for name, definition in [('shift_team', "TEXT NOT NULL DEFAULT 'A'"), ('shift_on', 'INTEGER NOT NULL DEFAULT 1')]:
+        if name not in user_columns: c.execute(f'ALTER TABLE users ADD COLUMN {name} {definition}')
+    if 'sync_readonly' not in existing:
+        c.execute('ALTER TABLE events ADD COLUMN sync_readonly INTEGER NOT NULL DEFAULT 0')
+    # Stable identities are essential for delayed device writes and tombstones.
+    c.execute('CREATE TABLE IF NOT EXISTS event_ids(id INTEGER PRIMARY KEY AUTOINCREMENT)')
+    c.execute('INSERT OR IGNORE INTO event_ids(id) SELECT MAX(id) FROM events HAVING MAX(id)>0')
+
+def next_event_id(c):
+    return c.execute('INSERT INTO event_ids DEFAULT VALUES').lastrowid
 
 # This runs only when the volume contains no accounts. Existing accounts are preserved.
 with db() as c:
@@ -50,7 +61,7 @@ with db() as c:
             c.execute('INSERT INTO users(username,name,password,admin) VALUES(?,?,?,1)',(initial_username,initial_name,generate_password_hash(initial_password)))
 
 def user():
-    with db() as c: return c.execute('SELECT id, username, name, admin FROM users WHERE id=?',(session.get('uid'),)).fetchone()
+    with db() as c: return c.execute('SELECT id, username, name, admin, shift_team, shift_on FROM users WHERE id=?',(session.get('uid'),)).fetchone()
 def required(fn):
     @wraps(fn)
     def inner(*a, **kw):
@@ -103,6 +114,15 @@ def me():
     session.setdefault('csrf',secrets.token_hex(32))
     u=user()
     return jsonify(user=dict(u) if u else None, csrf=session['csrf'])
+@app.put('/api/preferences')
+@required
+def preferences():
+    d=request.get_json() or {}
+    team=d.get('shift_team'); enabled=d.get('shift_on')
+    if team not in ('A','B','none') or type(enabled) is not bool: abort(400)
+    with db() as c:
+        c.execute('UPDATE users SET shift_team=?,shift_on=? WHERE id=?',(team,int(enabled),session['uid']))
+    return jsonify(user=dict(user()))
 @app.post('/api/login')
 def login():
     data=request.get_json() or {}; name=str(data.get('username',''))[:80]; now=time.time()
@@ -204,6 +224,8 @@ def save(eid=None):
             old=c.execute("SELECT * FROM events WHERE id=? AND (visibility='shared' OR owner=?)",(eid,session['uid'])).fetchone()
             if not old: abort(404)
             if old['owner']!=session['uid'] and not user()['admin']: abort(403)
+            if old['sync_readonly']:
+                return jsonify(error='휴대전화의 반복 일정입니다. 원본 캘린더에서 수정·삭제해 주세요.'),409
         if request.method=='DELETE': c.execute('DELETE FROM events WHERE id=?',(eid,)); return jsonify(ok=True)
         d=request.get_json() or {}
         title=str(d.get('title','')).strip(); day=str(d.get('day','')); clock=str(d.get('clock','')); note=str(d.get('note',''))
@@ -212,6 +234,9 @@ def save(eid=None):
         end_day=d.get('end_day') or day
         visibility=d.get('visibility','shared'); color=d.get('color','sage')
         if visibility not in ('shared','private') or color not in ('sage','blue','rose','amber','violet'): abort(400)
+        if eid and (old['calendar_type']!=kind or bool(old['annual'])!=annual):
+            if c.execute('SELECT 1 FROM calendar_links WHERE event_id=?',(eid,)).fetchone():
+                return jsonify(error='연동 중인 일정의 날짜 기준·반복 설정은 변경할 수 없습니다. 새 일정으로 등록해 주세요.'),409
         if kind=='solar': leap=False
         try:
             start_date=calendar_date(day,kind,leap)
@@ -222,8 +247,12 @@ def save(eid=None):
         if not 1<=len(title)<=100 or len(note)>2000 or (clock and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d',clock)): abort(400)
         values=(title,day,clock,note,kind,int(annual),int(leap),end_day,visibility,color)
         if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=?,end_day=?,visibility=?,color=? WHERE id=?',values+(eid,))
-        else: c.execute('INSERT INTO events(title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?)',values+(session['uid'],))
+        else: c.execute('INSERT INTO events(id,title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(next_event_id(c),)+values+(session['uid'],))
     return jsonify(ok=True)
+
+from calendar_sync import register_sync
+register_sync(app, db, required, calendar_date, event_spans, next_event_id)
+
 if __name__=='__main__':
     import argparse
     p=argparse.ArgumentParser(); p.add_argument('command',choices=['add-user','reset-password']); p.add_argument('username'); p.add_argument('--name'); p.add_argument('--admin',action='store_true'); args=p.parse_args()

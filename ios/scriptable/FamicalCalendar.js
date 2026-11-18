@@ -18,6 +18,7 @@ function normalizeServer(input) {
 function stamp(date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; }
 function shiftFor(date,cfg) {
   if(!cfg.shiftOn || date.getDay()===0 || date.getDay()===6)return "";
+  if(cfg.team==="none")return "주간";
   const weeks=Math.floor((Date.UTC(date.getFullYear(),date.getMonth(),date.getDate())-Date.UTC(2026,10,16))/604800000);
   let night=((weeks%2)+2)%2===0;if(cfg.team==="B")night=!night;
   return `${cfg.team||"A"}조 ${night?"야간":"주간"}`;
@@ -41,9 +42,9 @@ function sessionCookie(response) {
   }
   return value && /^[A-Za-z0-9._~-]+$/.test(value) ? "session="+value : null;
 }
-async function api(server,path,cookie,body,csrf) {
+async function api(server,path,cookie,body,csrf,method="POST") {
   const request=new Request(server+"api/"+path);
-  request.method=body?"POST":"GET";request.timeoutInterval=12;
+  request.method=body?method:"GET";request.timeoutInterval=12;
   request.allowInsecureRequest=false;request.onRedirect=()=>null;
   request.headers={Accept:"application/json",Cookie:cookie||""};
   if(body){request.headers["Content-Type"]="application/json";request.headers["X-CSRF-Token"]=csrf;request.body=JSON.stringify(body);}
@@ -66,17 +67,27 @@ async function loginInteractive() {
 async function settingsMenu() {
   const cfg=load("config");if(!cfg)return;
   const alert=new Alert();alert.title="위젯 표시 설정";
-  for(const label of ["A조 표시","B조 표시","교대 표시 OFF",cfg.includePrivate?"개인 일정 숨기기":"개인 일정도 표시하기"])alert.addAction(label);
+  for(const label of ["A조 표시","B조 표시","해당 없음 (주간)","교대 표시 OFF",cfg.includePrivate?"개인 일정 숨기기":"개인 일정도 표시하기"])alert.addAction(label);
   alert.addCancelAction("취소");const choice=await alert.presentSheet();
   if(choice<0)return;
-  if(choice<2){cfg.team=choice===0?"A":"B";cfg.shiftOn=true;}
-  if(choice===2)cfg.shiftOn=false;
-  if(choice===3)cfg.includePrivate=!cfg.includePrivate;
+  if(choice<3){cfg.team=["A","B","none"][choice];cfg.shiftOn=true;}
+  if(choice===3)cfg.shiftOn=false;
+  if(choice===4)cfg.includePrivate=!cfg.includePrivate;
+  if(choice<4) {
+    const cookie=load("cookie"),account=await api(cfg.server,"me",cookie);
+    if(!account.data.user)throw Error("다시 로그인해 주세요.");
+    const saved=await api(cfg.server,"preferences",cookie,{shift_team:cfg.team,shift_on:cfg.shiftOn},account.data.csrf,"PUT");
+    if(saved.status!==200)throw Error(saved.data.error||"NAS를 v1.3.0 이상으로 업데이트해 주세요.");
+  }
   save("config",cfg);remove("cache");
 }
 async function readSnapshot(cfg,date) {
   const cookie=load("cookie");if(!cookie)return {events:[],message:"Scriptable에서 다시 로그인해 주세요",time:null};
   try {
+    const account=await api(cfg.server,"me",cookie);
+    if(account.data.user&&["A","B","none"].includes(account.data.user.shift_team)) {
+      cfg.team=account.data.user.shift_team;cfg.shiftOn=!!account.data.user.shift_on;save("config",cfg);
+    }
     const response=await api(cfg.server,"events?month="+stamp(date).slice(0,7),cookie);
     if(response.status===401||response.status===403){remove("cookie");remove("cache");return {events:[],message:"로그인 만료 · 스크립트에서 재로그인",time:null};}
     if(response.status!==200||!Array.isArray(response.data))throw Error("Server response");

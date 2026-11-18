@@ -1,7 +1,7 @@
 {
   "application_id": "org.famical.calendar",
-  "version_name": "1.1.2",
-  "version_code": 4,
+  "version_name": "1.2.0",
+  "version_code": 5,
   "min_sdk": 26,
   "target_sdk": 35,
   "build_type": "debug",
@@ -14,10 +14,10 @@
     "private_events_default": false
   },
   "signing": "Same debug certificate as previous APKs; APK v2 verified",
-  "apk_sha256": "7f7f97fb3cdd6e6581e6caa617c2ba1f022f030aa2cac76965d983d8a8d2b7ab",
-  "apk_bytes": 60685,
+  "apk_sha256": "c9838cdd55b80e4f7039a6740bd8b0238cb9b59652d2d53ddb5b470be0c66eff",
+  "apk_bytes": 124916,
   "unit_tests": {
-    "tests": 14,
+    "tests": 33,
     "failures": 0
   },
   "render_test_sizes_dp": [
@@ -38,5 +38,26 @@
     "errors": 0,
     "warnings": 49
   },
-  "physical_device_tested": false
+  "physical_device_tested": false,
+  "minimum_nas_version": "1.3.0",
+  "server_tests": {
+    "tests": 20,
+    "failures": 0
+  },
+  "javascript_tests": {
+    "tests": 10,
+    "failures": 0
+  },
+  "calendar_sync": {
+    "opt_in": true,
+    "ordinary_solar_events": "bidirectional, owner only",
+    "native_recurring": "occurrence import; edit original on phone",
+    "famical_lunar_annual": "read-only solar projections on phone",
+    "conflict_default": "hold both",
+    "interval_request_minutes": 60,
+    "import_visibility_default": "private",
+    "active_connections_per_account": 1,
+    "native_account_cloud_tested": false,
+    "new_private_exports_default": false
+  }
 }

@@ -48,7 +48,8 @@ struct CalendarBrowser: UIViewRepresentable {
             view.evaluateJavaScript("localStorage.getItem('familyCalendar.shift')") { value,_ in
                 guard let text=value as? String,let data=text.data(using:.utf8),
                       let values=(try? JSONSerialization.jsonObject(with:data)) as? [String:Any] else{return}
-                SharedStore.defaults.set(values["team"] as? String == "B" ? "B":"A",forKey:"team")
+                let team=values["team"] as? String ?? "A"
+                SharedStore.defaults.set(["A","B","none"].contains(team) ? team:"A",forKey:"team")
                 SharedStore.defaults.set(values["on"] as? Bool ?? true,forKey:"shiftEnabled")
                 WidgetCenter.shared.reloadAllTimelines()
             }

@@ -52,6 +52,7 @@ public enum CalendarMath {
         guard enabled, weekday != 1, weekday != 7,
               let anchor=calendar.date(from:DateComponents(year:2026,month:11,day:16)),
               let days=calendar.dateComponents([.day],from:calendar.startOfDay(for:anchor),to:calendar.startOfDay(for:date)).day else { return "" }
+        if team == "none" { return "주간" }
         let week=Int(floor(Double(days)/7.0)); let aNight=((week % 2)+2)%2 == 0
         return "\(team)조 \((team == "B" ? !aNight : aNight) ? "야간" : "주간")"
     }

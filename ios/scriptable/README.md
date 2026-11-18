@@ -1,3 +1,5 @@
+> NAS v1.3.0과 함께 최신 `FamicalCalendar.scriptable`로 교체하면 계정에 저장된 A조·B조·해당 없음(주간) 및 교대 표시 ON/OFF를 읽습니다. 스크립트의 교대 설정 변경도 계정에 저장됩니다. 개인 일정 위젯 표시 여부는 기기에만 저장합니다.
+
 # iPhone home widget without a Mac: Scriptable
 
 Mac이나 본인 소유 Apple 개발자 계정 없이 iPhone 홈 화면 위젯을 사용하는 방법입니다. App Store의 **Scriptable** 앱에서 Famical 스크립트를 실행합니다. 별도의 Famical 네이티브 IPA를 설치하는 방식은 아닙니다.

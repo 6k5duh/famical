@@ -8,7 +8,7 @@ async function create() {
   async loadJSON(){
    assert.equal(this.allowInsecureRequest,false);assert.equal(this.onRedirect({url:'https://evil.test/'}),null);
    const path=new URL(this.url).pathname;
-   if(path==='/api/me'){this.response={statusCode:200,cookies:[{name:'session',value:'anon-session'}]};return {csrf:'csrf-token'};}
+   if(path==='/api/me'){this.response={statusCode:200,cookies:[{name:'session',value:'anon-session'}]};return {csrf:'csrf-token',...(this.headers.Cookie==='session=logged-session'?{user:{id:1,shift_team:'none',shift_on:1}}:{})};}
    if(path==='/api/login'){
     assert.equal(this.headers.Cookie,'session=anon-session');assert.equal(this.headers['X-CSRF-Token'],'csrf-token');assert.equal(JSON.parse(this.body).password,password);
     this.response={statusCode:200,cookies:[{name:'session',value:'logged-session'}]};return {ok:true};
@@ -31,14 +31,14 @@ test('only HTTPS origins are accepted',async()=>{
 });
 test('calendar shifts and private event filtering',async()=>{
  const {f}=await create();const cfg={team:'A',shiftOn:true,includePrivate:false};
- assert.equal(f.shiftFor(new Date(2026,10,17),cfg),'A조 야간');assert.equal(f.shiftFor(new Date(2026,10,23),cfg),'A조 주간');assert.equal(f.shiftFor(new Date(2026,10,21),cfg),'');
+ assert.equal(f.shiftFor(new Date(2026,10,17),cfg),'A조 야간');assert.equal(f.shiftFor(new Date(2026,10,23),cfg),'A조 주간');assert.equal(f.shiftFor(new Date(2026,10,21),cfg),'');assert.equal(f.shiftFor(new Date(2026,10,17),{...cfg,team:'none'}),'주간');assert.equal(f.shiftFor(new Date(2026,10,23),{...cfg,team:'none'}),'주간');assert.equal(f.shiftFor(new Date(2026,10,17),{...cfg,team:'none',shiftOn:false}),'');
  const events=[{day:'2026-11-16',end_day:'2026-11-18',visibility:'shared'},{day:'2026-11-17',visibility:'private'}];
  assert.equal(f.visibleToday(events,new Date(2026,10,17),cfg).length,1);assert.equal(f.visibleToday(events,new Date(2026,10,17),{...cfg,includePrivate:true}).length,2);
 });
 test('CSRF login, session storage and expiry clearing',async()=>{
  const {f,storage,password,expire}=await create();assert.equal(await f.loginInteractive(),true);
  assert(![...storage.values()].some(v=>v.includes(password)));
- const cfg=f.load('config');const snapshot=await f.readSnapshot(cfg,new Date(2026,10,17));assert.equal(snapshot.events.length,1);assert.equal(snapshot.events[0].title,'공유 여행');
+ const cfg=f.load('config');const snapshot=await f.readSnapshot(cfg,new Date(2026,10,17));assert.equal(snapshot.events.length,1);assert.equal(snapshot.events[0].title,'공유 여행');assert.equal(cfg.team,'none');assert.equal(cfg.shiftOn,true);
  for(const family of ['small','medium','large']){const w=f.buildWidget(cfg,snapshot,new Date(2026,10,17),family);assert.equal(w.url,cfg.server);assert(w.children.length>0);assert.equal(w.refreshAfterDate.getTime()-new Date(2026,10,17).getTime(),3600000);}
  expire();assert.equal((await f.readSnapshot(cfg,new Date(2026,10,17))).events.length,0);assert.equal(f.load('cookie'),null);assert.equal(f.load('cache'),null);
 });

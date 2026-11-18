@@ -4,6 +4,11 @@ private final class NoRedirect: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession,task: URLSessionTask,willPerformHTTPRedirection response: HTTPURLResponse,newRequest request: URLRequest,completionHandler: @escaping (URLRequest?) -> Void) { completionHandler(nil) }
 }
 
+private struct AccountEnvelope: Decodable {
+    struct User: Decodable { let shift_team: String?; let shift_on: Int? }
+    let user: User?
+}
+
 enum WidgetService {
     static func refresh(now: Date = Date()) async -> WidgetSnapshot {
         let stamp=CalendarMath.stamp(now)
@@ -20,6 +25,21 @@ enum WidgetService {
         let session=URLSession(configuration:config,delegate:NoRedirect(),delegateQueue:nil)
         defer { session.invalidateAndCancel() }
         do {
+            var accountRequest=URLRequest(url:server.appendingPathComponent("api/me"));accountRequest.timeoutInterval=12
+            accountRequest.setValue(cookie,forHTTPHeaderField:"Cookie")
+            let (accountData,accountResponse)=try await session.data(for:accountRequest)
+            if let response=accountResponse as? HTTPURLResponse,response.statusCode==200,
+               let account=try? JSONDecoder().decode(AccountEnvelope.self,from:accountData),
+               SharedStore.server==server,SharedStore.cookie==cookie {
+                guard let user=account.user else {
+                    SharedStore.snapshot=nil
+                    return WidgetSnapshot(date:now,stamp:stamp,events:[],message:"앱에서 다시 로그인해 주세요")
+                }
+                if let team=user.shift_team,["A","B","none"].contains(team) {
+                    SharedStore.defaults.set(team,forKey:"team")
+                    SharedStore.defaults.set(user.shift_on != 0,forKey:"shiftEnabled")
+                }
+            }
             let (data,response)=try await session.data(for:request)
             guard SharedStore.server==server,SharedStore.cookie==cookie,SharedStore.includePrivate==includePrivate else {
                 return WidgetSnapshot(date:now,stamp:stamp,events:[],message:"로그인 정보가 변경되었습니다. 앱을 열어 주세요")

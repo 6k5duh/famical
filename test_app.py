@@ -122,9 +122,106 @@ class CalendarTest(unittest.TestCase):
     self.assertNotEqual(result.returncode,0);self.assertIn('INITIAL_ADMIN_PASSWORD',result.stderr)
  def test_version_identification(self):
   c=self.app.test_client();r=c.get('/')
-  self.assertIn('Famical v1.2.0',r.text);self.assertIn('?v=1.2.0',r.text)
+  self.assertIn('Famical v1.3.0',r.text);self.assertIn('?v=1.3.0',r.text)
   self.assertEqual(r.headers['Cache-Control'],'no-store')
-  self.assertEqual(r.headers['X-Famical-Version'],'1.2.0')
-  self.assertEqual(c.get('/api/version').json,{'version':'1.2.0'})
+  self.assertEqual(r.headers['X-Famical-Version'],'1.3.0')
+  self.assertEqual(c.get('/api/version').json,{'version':'1.3.0'})
+
+ def test_account_shift_preferences_survive_login_and_other_devices(self):
+  owner,h=self.client(2)
+  for team in ('B','none'):
+   r=owner.put('/api/preferences',json={'shift_team':team,'shift_on':True},headers=h)
+   self.assertEqual(r.status_code,200);self.assertEqual(r.json['user']['shift_team'],team)
+   another,_=self.client(2);self.assertEqual(another.get('/api/me').json['user']['shift_team'],team)
+  self.assertEqual(owner.put('/api/preferences',json={'shift_team':'none','shift_on':False},headers=h).status_code,200)
+  self.assertEqual(owner.put('/api/preferences',json={'shift_team':'C','shift_on':True},headers=h).status_code,400)
+  self.assertEqual(owner.put('/api/preferences',json={'shift_team':'A','shift_on':'false'},headers=h).status_code,400)
+  self.assertEqual(owner.put('/api/preferences',json={'shift_team':'A','shift_on':True}).status_code,403)
+  self.assertEqual(self.client(1)[0].get('/api/me').json['user']['shift_team'],'A')
+  owner.post('/api/logout',headers=h)
+  again,_=self.client(2);self.assertEqual(again.get('/api/me').json['user']['shift_on'],0)
+
+ def sync_client(self):
+  c,h=self.client(1);token='test-calendar-connection-123'
+  r=c.post('/api/calendar-sync/connection',json={'connection':token,'label':'테스트 캘린더','visibility':'private'},headers=h)
+  self.assertEqual(r.status_code,200)
+  return c,h,token
+
+ def sync_item(self,c,h,token,key,action,**extra):
+  return c.post('/api/calendar-sync/item',json={'connection':token,'external_key':key,'action':action,'native_hash':'a'*64,**extra},headers=h)
+
+ def snapshot(self,c,token):
+  return c.get(f'/api/calendar-sync?connection={token}&from=2026-01-01&to=2027-01-01').json
+
+ def test_sync_import_retry_privacy_and_tombstone(self):
+  c,h,token=self.sync_client();key='n:1001';payload=self.event(title='휴대전화 원본',end_day='2026-11-19')
+  r=self.sync_item(c,h,token,key,'import',event=payload);self.assertEqual(r.status_code,200)
+  e=r.json['event'];self.assertEqual(e['visibility'],'private');self.assertEqual(e['owner'],c.get('/api/me').json['user']['id'])
+  r=self.sync_item(c,h,token,key,'import',event={**payload,'title':'재시도 변경 금지'})
+  self.assertEqual(r.json['event']['id'],e['id']);self.assertEqual(r.json['event']['title'],'휴대전화 원본')
+  other,oh=self.client(0);self.assertNotIn(e['id'],[v['id'] for v in other.get('/api/events?month=2026-11').json])
+  self.assertEqual(self.sync_item(c,h,token,key,'update',revision='stale',event=payload).status_code,409)
+  updated=self.sync_item(c,h,token,key,'update',revision=e['revision'],event={**payload,'title':'휴대전화 수정','visibility':'shared'})
+  self.assertEqual(updated.status_code,200);self.assertEqual(updated.json['event']['visibility'],'private')
+  e=updated.json['event']
+  self.assertEqual(c.delete(f"/api/events/{e['id']}",headers=h).status_code,200)
+  link=next(v for v in self.snapshot(c,token)['links'] if v['external_key']==key);self.assertIsNone(link['event'])
+  r=self.sync_item(c,h,token,key,'import',event=payload);self.assertIsNone(r.json['event'])
+
+ def test_sync_web_edits_conflicts_and_native_deletion(self):
+  c,h,token=self.sync_client();key='n:1002'
+  e=self.sync_item(c,h,token,key,'import',event=self.event(title='서로 수정')).json['event']
+  web=self.event(title='웹 수정 우선 확인',visibility='private')
+  self.assertEqual(c.put(f"/api/events/{e['id']}",json=web,headers=h).status_code,200)
+  self.assertEqual(self.sync_item(c,h,token,key,'delete',revision=e['revision']).status_code,409)
+  self.assertEqual(self.sync_item(c,h,token,key,'update',revision=e['revision'],event=self.event(title='오래된 수정')).status_code,409)
+  current=next(v['event'] for v in self.snapshot(c,token)['links'] if v['external_key']==key)
+  self.assertEqual(current['title'],'웹 수정 우선 확인')
+  self.assertEqual(self.sync_item(c,h,token,key,'checkpoint',revision=current['revision'],native_hash='b'*64).status_code,200)
+  self.assertEqual(self.sync_item(c,h,token,key,'delete',revision=current['revision']).status_code,200)
+  self.assertIsNone(next(v['event'] for v in self.snapshot(c,token)['links'] if v['external_key']==key))
+
+ def test_sync_owner_scope_connection_and_csrf(self):
+  c,h,token=self.sync_client();other,oh=self.client(2)
+  self.assertEqual(other.get(f'/api/calendar-sync?connection={token}&from=2026-01-01&to=2026-12-31').status_code,409)
+  self.assertEqual(c.post('/api/calendar-sync/item',json={}).status_code,403)
+  self.assertEqual(c.post('/api/calendar-sync/connection',json={'connection':'another-device-12345','label':'다른 기기'},headers=h).status_code,409)
+  other.post('/api/events',json=self.event(title='다른 사람의 공유 일정'),headers=oh)
+  foreign=next(e for e in c.get('/api/events?month=2026-11').json if e['title']=='다른 사람의 공유 일정')
+  self.assertNotIn(foreign['id'],[e['id'] for e in self.snapshot(c,token)['events']])
+  self.assertEqual(self.sync_item(c,h,token,'n:1003','attach',event_id=foreign['id'],revision='x').status_code,409)
+  self.assertEqual(c.get(f'/api/calendar-sync?connection={token}&from=2026-01-01&to=2029-12-31').status_code,400)
+
+ def test_sync_recurring_occurrences_are_source_editable_only(self):
+  c,h,token=self.sync_client();key='r:2001:1794870000000'
+  e=self.sync_item(c,h,token,key,'import',event=self.event(title='반복 발생일')).json['event']
+  self.assertEqual(e['sync_readonly'],1)
+  self.assertEqual(c.put(f"/api/events/{e['id']}",json=self.event(title='잘못된 수정'),headers=h).status_code,409)
+  self.assertEqual(c.delete(f"/api/events/{e['id']}",headers=h).status_code,409)
+  self.assertEqual(self.sync_item(c,h,token,key,'update',revision=e['revision'],event=self.event(title='원본에서 바뀜')).status_code,200)
+
+ def test_sync_lunar_projection_preserves_rule(self):
+  c,h,token=self.sync_client()
+  c.post('/api/events',json=self.event(title='연동 음력 설',day='2026-01-01',calendar_type='lunar',annual=True),headers=h)
+  e=next(v for v in self.snapshot(c,token)['events'] if v['title']=='연동 음력 설')
+  self.assertTrue(e['projection']);self.assertEqual(e['day'],'2026-02-17')
+  r=self.sync_item(c,h,token,'n:1004','attach',event_id=e['id'],revision=e['revision'],projection_day=e['day'])
+  self.assertEqual(r.status_code,200)
+  self.assertEqual(self.sync_item(c,h,token,'n:1004','update',revision=e['revision'],event=self.event(title='음력 규칙 훼손 금지')).status_code,409)
+  with self.m.db() as con:
+   raw=con.execute('SELECT * FROM events WHERE id=?',(e['id'],)).fetchone()
+   self.assertEqual((raw['day'],raw['calendar_type'],raw['annual']),('2026-01-01','lunar',1))
+
+ def test_sync_explicit_restore_and_rebind_after_delete_conflicts(self):
+  c,h,token=self.sync_client();key='n:1100';payload=self.event(title='삭제 충돌 복구')
+  event=self.sync_item(c,h,token,key,'import',event=payload).json['event']
+  c.delete(f"/api/events/{event['id']}",headers=h)
+  self.assertEqual(self.sync_item(c,h,token,key,'restore',revision='stale',event=payload).status_code,409)
+  restored=self.sync_item(c,h,token,key,'restore',revision=event['revision'],event=payload)
+  self.assertEqual(restored.status_code,200);self.assertNotEqual(restored.json['event']['id'],event['id']);event=restored.json['event'];self.assertEqual(event['visibility'],'private')
+  rebound=self.sync_item(c,h,token,'n:1101','rebind',replaces_key=key,event_id=event['id'],revision=event['revision'])
+  self.assertEqual(rebound.status_code,200)
+  links={v['external_key']:v for v in self.snapshot(c,token)['links']}
+  self.assertIsNone(links[key]['event']);self.assertEqual(links['n:1101']['event']['id'],event['id'])
 
 if __name__=='__main__':unittest.main()

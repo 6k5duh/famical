@@ -52,6 +52,7 @@ public class MainActivity extends Activity {
         preferences = getSharedPreferences("famical", MODE_PRIVATE);
         server = preferences.getString("server", "");
         buildScreen();
+        CalendarSync.schedule(this);
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
                     OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
@@ -89,7 +90,7 @@ public class MainActivity extends Activity {
         ws.setAllowFileAccess(false); ws.setAllowContentAccess(false);
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         ws.setJavaScriptCanOpenWindowsAutomatically(false); ws.setSupportMultipleWindows(false);
-        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.1.2");
+        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.2.0");
         WebView.setWebContentsDebuggingEnabled(false);
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(browser,false);
@@ -155,7 +156,9 @@ public class MainActivity extends Activity {
         connect.setOnClickListener(v->{
             try {
                 String next=ServerAddress.normalize(serverInput.getText().toString());
-                boolean changed=!next.equals(server); server=next;
+                boolean changed=!next.equals(server);
+                if(changed){preferences.edit().putBoolean("sync_enabled",false).apply();CalendarSync.schedule(this);}
+                server=next;
                 preferences.edit().putString("server",server).apply();
                 if(changed) {
                     WebStorage.getInstance().deleteAllData(); browser.clearHistory(); browser.clearCache(true);
@@ -163,15 +166,63 @@ public class MainActivity extends Activity {
                 } else loadServer();
             } catch(IllegalArgumentException e) { addressError.setText(e.getMessage()); }
         });
-        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.1.2 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
+        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.2.0 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
         android.widget.CheckBox privateEvents=new android.widget.CheckBox(this);
         privateEvents.setText("위젯에 나의 개인 일정 표시");
         privateEvents.setChecked(preferences.getBoolean("widget_private",false));
         privateEvents.setOnCheckedChangeListener((v,checked)->{preferences.edit().putBoolean("widget_private",checked).remove("widget_lines").remove("widget_day").remove("widget_month_events").remove("widget_month").apply();CalendarWidget.refreshAll(this);});
         form.addView(privateEvents);
+        Button calendarSync=button("삼성·휴대전화 캘린더 연동");form.addView(calendarSync);calendarSync.setOnClickListener(v->showCalendarSync());
         TextView widgetNote=text("홈 화면을 길게 누른 뒤 위젯 → 우리 가족 달력을 추가하세요. 위젯은 월 달력·교대조·오늘 일정 최대 3개를 표시합니다. 갱신은 기기 정책에 따라 지연될 수 있습니다.",13);form.addView(widgetNote);
         settingsPanel.addView(form); settingsPanel.setVisibility(View.GONE);
         root.addView(settingsPanel,new LinearLayout.LayoutParams(-1,0,1));
+    }
+
+    private void showCalendarSync() {
+        if(server.isEmpty()){addressError.setText("먼저 서버에 연결하고 가족 계정으로 로그인해 주세요.");return;}
+        String cookie=CookieManager.getInstance().getCookie(server);
+        if(cookie==null){addressError.setText("먼저 가족 계정으로 로그인해 주세요.");return;}
+        if(preferences.getBoolean("sync_enabled",false)||!preferences.getString("sync_connection","").isEmpty()) {
+            new AlertDialog.Builder(this).setTitle("캘린더 연동")
+                .setView(text(preferences.getString("sync_label","")+"\n"+preferences.getString("sync_status","")+"\n\n일반 일정은 양방향으로 반영합니다. 충돌은 기본적으로 보류합니다. 반복·음력 보기용 일정은 원본에서 수정하세요.",14))
+                .setItems(new String[]{"지금 동기화","동시에 수정된 일반 일정: 휴대전화 우선","동시에 수정된 일반 일정: 가족 달력 우선","연동 해제 (기존 일정 보관)","연동 연결·재개"},(d,which)->{
+                    if(which==3){CalendarSync.disconnect(this,cookie,this::syncNotice);return;}
+                    if(which==4){selectCalendar();return;}
+                    if(!preferences.getBoolean("sync_enabled",false)){syncNotice("연동 연결·재개를 선택해 주세요.");return;}
+                    CalendarSync.submit(this,cookie,which==1?"native":which==2?"server":"",this::syncNotice);
+                }).setNegativeButton("닫기",null).show();
+        } else selectCalendar();
+    }
+    private void selectCalendar() {
+        if(!CalendarSync.permitted(this)) {
+            requestPermissions(new String[]{android.Manifest.permission.READ_CALENDAR,android.Manifest.permission.WRITE_CALENDAR},41);return;
+        }
+        try {
+            java.util.List<DeviceCalendars.Choice> calendars=DeviceCalendars.choices(getContentResolver());
+            if(calendars.isEmpty()){syncNotice("읽기·쓰기가 가능한 캘린더가 없습니다. 삼성 캘린더의 계정 동기화를 확인해 주세요.");return;}
+            new AlertDialog.Builder(this).setTitle("연동할 캘린더 선택")
+                .setItems(calendars.stream().map(Object::toString).toArray(String[]::new),(dialog,which)->{
+                    DeviceCalendars.Choice choice=calendars.get(which);final String[] visibility={"private"};
+                    LinearLayout details=panel();
+                    details.addView(text("선택한 캘린더와 본인의 가족 달력 일정 사이에 추가·수정·삭제를 반영합니다. 다른 가족의 일정은 복사하지 않습니다.\n\n지난달부터 앞으로 약 12개월을 연결합니다. 반복·음력 원본 규칙은 원래 앱에서 수정하세요. 1시간 갱신은 절전 정책에 따라 지연될 수 있습니다.",14));
+                    android.widget.CheckBox exportPrivate=new android.widget.CheckBox(this);
+                    exportPrivate.setText("새 개인 일정도 휴대전화로 내보내기");exportPrivate.setChecked(false);details.addView(exportPrivate);
+                    details.addView(text("내보낸 일정은 선택한 캘린더의 공유 권한을 따릅니다. 이미 연결한 일정은 공개 범위를 바꿔도 연결을 유지합니다.",12));
+                    new AlertDialog.Builder(this).setTitle("양방향 연동 설정")
+                        .setView(details)
+                        .setSingleChoiceItems(new String[]{"가져오는 일정: 나에게만 보이기","가져오는 일정: 모두에게 보이기"},0,(d,index)->visibility[0]=index==0?"private":"shared")
+                        .setPositiveButton("양방향 연동 시작",(d,w)->CalendarSync.connect(this,choice,visibility[0],exportPrivate.isChecked(),CookieManager.getInstance().getCookie(server),this::syncNotice))
+                        .setNegativeButton("취소",null).show();
+                }).setNegativeButton("취소",null).show();
+        }catch(Exception e){syncNotice("캘린더 목록을 읽지 못했습니다. 권한을 확인해 주세요.");}
+    }
+    private void syncNotice(String message) {
+        if(isFinishing()||isDestroyed())return;
+        new AlertDialog.Builder(this).setTitle("캘린더 연동").setMessage(message).setPositiveButton("확인",(d,w)->{if(content.getVisibility()==View.VISIBLE)loadServer();}).show();
+    }
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results) {
+        super.onRequestPermissionsResult(request,permissions,results);
+        if(request==41){if(CalendarSync.permitted(this))selectCalendar();else syncNotice("캘린더 권한을 허용해야 연동할 수 있습니다. 가족 달력은 계속 사용할 수 있습니다.");}
     }
 
     private void showSettings() {
@@ -203,14 +254,21 @@ public class MainActivity extends Activity {
                 if(value instanceof String) {
                     org.json.JSONObject settings=new org.json.JSONObject((String)value);
                     String team=settings.optString("team","A");
-                    preferences.edit().putString("widget_team","B".equals(team)?"B":"A").putBoolean("widget_shift",settings.optBoolean("on",true)).apply();
+                    preferences.edit().putString("widget_team","none".equals(team)?"none":"B".equals(team)?"B":"A").putBoolean("widget_shift",settings.optBoolean("on",true)).apply();
                 }
             } catch(org.json.JSONException ignored) {}
             CookieManager.getInstance().flush();CalendarWidget.refreshAll(this);
         });
         super.onPause(); browser.onPause(); CookieManager.getInstance().flush();CalendarWidget.refreshAll(this);
     }
-    @Override protected void onResume() { super.onResume(); if(browser!=null) browser.onResume(); }
+    @Override protected void onResume() {
+        super.onResume(); if(browser!=null) browser.onResume();
+        if(preferences!=null&&preferences.getBoolean("sync_enabled",false)) {
+            CalendarSync.schedule(this);
+            String cookie=CookieManager.getInstance().getCookie(server);
+            if(cookie!=null)CalendarSync.submit(this,cookie,"",null);
+        }
+    }
     @Override protected void onDestroy() {
         if(browser!=null) { content.removeView(browser);browser.destroy(); }
         super.onDestroy();

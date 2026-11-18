@@ -52,6 +52,10 @@ public class CalendarWidget extends AppWidgetProvider {
             String status;String lines=null,monthEvents=null;LocalDate today=LocalDate.now();
             try {
                 String origin=ServerAddress.normalize(server);
+                CalendarApi accountApi=new CalendarApi(origin,session,()->origin.equals(p.getString("server",""))&&session.equals(CookieManager.getInstance().getCookie(origin)));
+                org.json.JSONObject account=accountApi.me().optJSONObject("user");
+                if(account==null)throw new IllegalStateException("Login required");
+                AccountPreferences.store(p,account);
                 HttpURLConnection conn=(HttpURLConnection)new URL(origin+"api/events?month="+YearMonth.from(today)).openConnection();
                 conn.setInstanceFollowRedirects(false);conn.setConnectTimeout(3000);conn.setReadTimeout(4000);
                 conn.setRequestProperty("Cookie",session);conn.setRequestProperty("Accept","application/json");

@@ -1,3 +1,5 @@
+> 최신 Android 버전: **v1.2.0**, 필요한 NAS 웹앱: **v1.3.0**. [APK 다운로드](../downloads/README.md) · [삼성 캘린더 연동·교대조 계정 저장 안내](CALENDAR_SYNC.md)
+
 # Famical Android APK v1.1.0
 
 삼성 갤럭시에 설치해 기존 NAS 가족 달력을 사용하는 안드로이드 앱입니다. 네이티브 Android WebView 컨테이너로 NAS의 기존 웹 화면을 표시합니다. NAS 서버/API를 새로 만들지 않고 현재의 로그인·교대조·음력·기간 일정·개인/공유 일정을 그대로 사용합니다.

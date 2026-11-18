@@ -9,6 +9,7 @@ import java.util.Locale;
 final class WidgetSummary {
     static String shift(LocalDate date, String team, boolean enabled) {
         if (!enabled || date.getDayOfWeek()==DayOfWeek.SATURDAY || date.getDayOfWeek()==DayOfWeek.SUNDAY) return "";
+        if ("none".equals(team)) return "주간";
         long weeks=Math.floorDiv(ChronoUnit.DAYS.between(LocalDate.of(2026,11,16),date),7);
         boolean night=Math.floorMod(weeks,2)==0;
         if ("B".equals(team)) night=!night;

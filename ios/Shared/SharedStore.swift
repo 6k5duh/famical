@@ -16,7 +16,7 @@ enum SharedStore {
         return values
     }
     static var server: URL? { defaults.string(forKey:"server").flatMap { ServerAddress.normalize($0) } }
-    static var team: String { defaults.string(forKey:"team") == "B" ? "B" : "A" }
+    static var team: String { let value=defaults.string(forKey:"team") ?? "A"; return ["A","B","none"].contains(value) ? value : "A" }
     static var shiftEnabled: Bool { defaults.object(forKey:"shiftEnabled") as? Bool ?? true }
     static var includePrivate: Bool { defaults.bool(forKey:"includePrivate") }
     static var snapshot: WidgetSnapshot? {

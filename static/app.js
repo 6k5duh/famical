@@ -1,9 +1,14 @@
-import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.2.0';
+import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.3.0';
 const $ = id => document.getElementById(id);
-let csrf = '', me = null, events = [], lunar = {}, cursor = new Date(), requestNo = 0;
+let csrf = '', me = null, events = [], lunar = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
 let prefs = {on:true, team:'A'};
-try { prefs = {...prefs, ...JSON.parse(localStorage.getItem(key)||'{}')}; } catch {}
+// The account is authoritative; this mirror is read by the native widgets.
+function applyPreferences(u) {
+  prefs={on:!!u.shift_on,team:['A','B','none'].includes(u.shift_team)?u.shift_team:'A'};
+  $('shiftOn').checked=prefs.on; $('team').value=prefs.team;
+  try { localStorage.setItem(key,JSON.stringify(prefs)); } catch {}
+}
 $('shiftOn').checked = prefs.on;
 $('team').value = prefs.team;
 const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -26,28 +31,31 @@ function show() {
   if (!me) { events=[]; $('grid').replaceChildren(); }
 }
 async function boot() {
-  try { const d=await api('me'); csrf=d.csrf; me=d.user; show(); if(me) await load(); }
+  try { const d=await api('me'); csrf=d.csrf; me=d.user; if(me) applyPreferences(me); show(); if(me) await load(); }
   catch(e) { say(e.message); }
 }
 async function load() {
   if (!me) return;
-  const n=++requestNo, month=iso(cursor).slice(0,7);
+  const n=++requestNo, epoch=preferenceEpoch, month=iso(cursor).slice(0,7);
   try {
-    const [result,moon]=await Promise.all([api('events?month='+month),api('lunar?month='+month)]);
+    const [result,moon,account]=await Promise.all([api('events?month='+month),api('lunar?month='+month),api('me')]);
     if (n!==requestNo || !me) return;
+    if(!account.user){me=null;show();return;}
+    if(epoch===preferenceEpoch&&!savingPreferences){me=account.user;applyPreferences(me);}
     events=result; lunar=moon; render();
     $('sync').textContent=`${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 동기화`; say('');
   } catch(e) { say(e.message); }
 }
 function shift(d) {
   if (!prefs.on || d.getDay()===0 || d.getDay()===6) return '';
+  if (prefs.team==='none') return 'day';
   const weeks=Math.floor((Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())-Date.UTC(2026,10,16))/604800000);
   const aNight=((weeks%2)+2)%2===0;
   return (prefs.team==='A' ? aNight : !aNight) ? 'night' : 'day';
 }
 function render() {
   $('monthTitle').textContent=`${cursor.getFullYear()}년 ${cursor.getMonth()+1}월`;
-  $('legend').hidden=!prefs.on; $('team').disabled=!prefs.on;
+  $('legend').hidden=!prefs.on; $('team').disabled=savingPreferences||!prefs.on;
   const grid=$('grid'); grid.replaceChildren();
   const y=cursor.getFullYear(), m=cursor.getMonth(), offset=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
   const visible=events.filter(e=>$('eventView').value!=='mine'||e.owner===me.id);
@@ -68,7 +76,7 @@ function render() {
       const num=document.createElement('span'); num.className='date'; num.textContent=day; heading.append(num);
       if(lunar[stamp]) { const moon=document.createElement('small'); moon.className='lunar'; moon.textContent=lunarLabel(lunar[stamp]); heading.append(moon); }
       cell.append(heading);
-      if(s) { const tag=document.createElement('span'); tag.className='shift'; tag.textContent=`${prefs.team} ${s==='night'?'야간':'주간'}`; cell.append(tag); }
+      if(s) { const tag=document.createElement('span'); tag.className='shift'; tag.textContent=prefs.team==='none'?'주간':`${prefs.team} ${s==='night'?'야간':'주간'}`; cell.append(tag); }
       cell.tabIndex=0; cell.setAttribute('role','button'); cell.setAttribute('aria-label',`${m+1}월 ${day}일 일정 추가`);
       cell.onclick=()=>edit({day:stamp});
       cell.onkeydown=e=>{if(e.target===cell&&(e.key==='Enter'||e.key===' ')){e.preventDefault();edit({day:stamp});}};
@@ -100,11 +108,11 @@ function edit(ev) {
   f.elements.calendar_type.value=ev.calendar_type||'solar'; f.elements.color.value=ev.color||'sage';
   f.elements.visibility.value=ev.visibility||'shared';
   f.elements.annual.checked=!!ev.annual; f.elements.leap.checked=!!ev.leap; dateHelp();
-  const allowed=!ev.id||me.admin||ev.owner===me.id;
+  const allowed=!ev.sync_readonly&&(!ev.id||me.admin||ev.owner===me.id);
   for(const field of ['title','day','end_day','clock','note','calendar_type','color','annual','leap']) f.elements[field].disabled=!allowed;
   for(const radio of f.querySelectorAll('[name=visibility]')) radio.disabled=!allowed;
   $('save').hidden=!allowed; $('remove').hidden=!ev.id||!allowed;
-  $('author').textContent=ev.author?`작성: ${ev.author}${allowed?'':' · 조회만 가능'}`:'공개 범위 기본값은 모두에게 보이기입니다.';
+  $('author').textContent=ev.author?`작성: ${ev.author}${ev.sync_readonly?' · 반복 일정은 원본 휴대전화에서 수정':allowed?'':' · 조회만 가능'}`:'공개 범위 기본값은 모두에게 보이기입니다.';
   $('editor').showModal();
 }
 $('loginForm').onsubmit=async e=>{e.preventDefault();try{await api('login','POST',Object.fromEntries(new FormData(e.target)));e.target.reset();say('');await boot();}catch(e){say(e.message);}};
@@ -122,7 +130,13 @@ $('calendarType').onchange=dateHelp; $('eventView').onchange=render;
 $('prev').onclick=()=>{if(cursor.getFullYear()===1900&&cursor.getMonth()===0)return;cursor=new Date(cursor.getFullYear(),cursor.getMonth()-1,1);load();};
 $('next').onclick=()=>{if(cursor.getFullYear()===2099&&cursor.getMonth()===11)return;cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);load();};
 $('today').onclick=()=>{cursor=new Date();load();}; $('refresh').onclick=load;
-for(const id of ['shiftOn','team']) $(id).onchange=()=>{prefs={on:$('shiftOn').checked,team:$('team').value};try{localStorage.setItem(key,JSON.stringify(prefs));}catch{}render();};
+for(const id of ['shiftOn','team']) $(id).onchange=async()=>{
+  const previous={...prefs}, uid=me.id; ++preferenceEpoch;savingPreferences=true; $('shiftOn').disabled=true; $('team').disabled=true;
+  try { const d=await api('preferences','PUT',{shift_team:$('team').value,shift_on:$('shiftOn').checked});
+    if(me?.id===uid){me=d.user;applyPreferences(me);say('교대 설정을 계정에 저장했습니다.');}
+  } catch(e) {if(me?.id===uid){applyPreferences({shift_team:previous.team,shift_on:previous.on});say(e.message);}}
+  finally {savingPreferences=false;$('shiftOn').disabled=false;if(me)render();}
+};
 $('passwordButton').onclick=()=>{$('passwordForm').reset();$('passwordError').textContent='';$('passwordDialog').showModal();};
 $('passwordClose').onclick=()=>$('passwordDialog').close();
 $('passwordForm').onsubmit=async e=>{e.preventDefault();try{await api('password','POST',Object.fromEntries(new FormData(e.target)));$('passwordDialog').close();await boot();say('비밀번호를 변경했습니다. 다시 로그인해 주세요.');}catch(e){$('passwordError').textContent=e.message;}};
