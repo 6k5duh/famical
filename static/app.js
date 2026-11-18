@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.4.0';
+import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.5.0';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
@@ -119,14 +119,14 @@ function render() {
 function dateHelp() {
   const moon=$('calendarType').value==='lunar'; $('leapLabel').hidden=!moon;
   $('dateHelp').textContent=moon
-    ? '시작일·종료일 모두 음력 YYYY-MM-DD로 입력하세요 (1900~2050년). 윤달 여부는 두 날짜에 함께 적용됩니다. 반복 시 날짜가 없는 해는 건너뜁니다.'
-    : '양력 YYYY-MM-DD로 입력하세요. 종료일까지 포함하며 최대 366일입니다. 매년 반복 시 2월 29일은 윤년에만 표시됩니다.';
+    ? '음력 날짜는 숫자 8자리로 입력할 수 있습니다 (1900~2050년). 윤달 여부는 두 날짜에 함께 적용됩니다. 반복 시 날짜가 없는 해는 건너뜁니다.'
+    : '양력 날짜는 숫자 8자리로 입력할 수 있습니다. 종료일까지 포함하며 최대 366일입니다. 매년 반복 시 2월 29일은 윤년에만 표시됩니다.';
 }
 function edit(ev) {
   const f=$('eventForm'); f.reset(); $('editorError').textContent='';
   for(const field of ['id','title','day','clock','note']) f.elements[field].value=ev[field]||'';
   f.elements.day.value=ev.source_day||ev.day||'';
-  f.elements.end_day.value=ev.source_end_day||ev.end_day||ev.day||'';
+  f.elements.end_day.value=ev.source_end_day||ev.end_day||'';
   f.elements.calendar_type.value=ev.calendar_type||'solar'; f.elements.color.value=ev.color||'sage';
   f.elements.visibility.value=ev.visibility||'shared';
   f.elements.annual.checked=!!ev.annual; f.elements.leap.checked=!!ev.leap; dateHelp();
@@ -137,8 +137,37 @@ function edit(ev) {
   $('author').textContent=ev.author?`작성: ${ev.author}${ev.sync_readonly?' · 반복 일정은 원본 휴대전화에서 수정':allowed?'':' · 조회만 가능'}`:'공개 범위 기본값은 모두에게 보이기입니다.';
   $('editor').showModal();
 }
-$('loginForm').onsubmit=async e=>{e.preventDefault();try{await api('login','POST',Object.fromEntries(new FormData(e.target)));e.target.reset();say('');await boot();}catch(e){say(e.message);}};
+$('loginForm').onsubmit = async event => {
+  event.preventDefault();
+  const form = event.target;
+  try {
+    // The browser may have resumed a login page after its previous cookie expired.
+    csrf = (await api('me')).csrf;
+    await api('login', 'POST', {
+      username: form.elements.username.value,
+      password: form.elements.password.value,
+      remember: form.elements.remember.checked
+    });
+    form.reset();
+    say('');
+    await boot();
+  } catch (error) {
+    say(error.message);
+  }
+};
 $('logout').onclick=async()=>{try{await api('logout','POST');await boot();}catch(e){say(e.message);}};
+$('eventForm').oninput = ({target}) => {
+  if (target.name !== 'day' && target.name !== 'end_day') return;
+  const value = target.value;
+  if (!/^\d{4}-?\d{2}-?\d{2}$/.test(value)) return;
+  const digits = value.replaceAll('-', '');
+  const formatted = digits.slice(0,4) + '-' + digits.slice(4,6) + '-' + digits.slice(6);
+  if (value === formatted) return;
+  const before = value.slice(0,target.selectionStart).replaceAll('-', '').length;
+  target.value = formatted;
+  const caret = before + Number(before > 4) + Number(before > 6);
+  target.setSelectionRange(caret, caret);
+};
 $('eventForm').onsubmit=async e=>{
   e.preventDefault(); const d=Object.fromEntries(new FormData(e.target));
   d.annual=e.target.elements.annual.checked; d.leap=d.calendar_type==='lunar'&&e.target.elements.leap.checked;

@@ -138,12 +138,53 @@ class CalendarTest(unittest.TestCase):
   self.assertEqual(month('2028-01')['2028-01-27'],'설날')
   self.assertEqual(client.get('/api/holidays?month=2027-00').status_code,400)
 
+ def test_remembered_device_lifetime_and_revocation(self):
+  import time
+  from unittest.mock import patch
+  def sign_in(remember):
+   client=self.app.test_client()
+   csrf=client.get('/api/me').json['csrf']
+   r=client.post('/api/login',json={'username':'user2','password':'strong-password-123','remember':remember},headers={'X-CSRF-Token':csrf})
+   self.assertEqual(r.status_code,200)
+   return client,client.get_cookie('session')
+  device,cookie=sign_in(True)
+  self.assertAlmostEqual(cookie.expires.timestamp()-time.time(),90*86400,delta=5)
+  self.assertTrue(cookie.http_only and cookie.secure)
+  another,other_cookie=sign_in(False)
+  self.assertIsNone(other_cookie.expires)
+  replay=self.app.test_client()
+  replay.set_cookie('session',cookie.value)
+  with patch('time.time',return_value=time.time()+8*86400):
+   self.assertEqual(replay.get('/api/me').json['user']['username'],'user2')
+   self.assertIsNone(another.get('/api/me').json['user'])
+  with patch('time.time',return_value=time.time()+91*86400):
+   self.assertIsNone(replay.get('/api/me').json['user'])
+  second,_=sign_in(True)
+  csrf=device.get('/api/me').json['csrf']
+  self.assertEqual(device.post('/api/logout',headers={'X-CSRF-Token':csrf}).status_code,200)
+  replay.set_cookie('session',cookie.value)
+  self.assertIsNone(replay.get('/api/me').json['user'])
+  self.assertEqual(second.get('/api/me').json['user']['username'],'user2')
+
+ def test_password_change_revokes_other_device(self):
+  first,headers=self.client(2)
+  other,_=self.client(2)
+  with self.m.db() as conn:
+   old_hash=conn.execute("SELECT password FROM users WHERE username='user2'").fetchone()[0]
+  try:
+   result=first.post('/api/password',json={'old':'strong-password-123','new':'changed-for-this-test'},headers=headers)
+   self.assertEqual(result.status_code,200)
+   self.assertIsNone(other.get('/api/me').json['user'])
+  finally:
+   with self.m.db() as conn:
+    conn.execute("UPDATE users SET password=? WHERE username='user2'",(old_hash,))
+
  def test_version_identification(self):
   c=self.app.test_client();r=c.get('/')
-  self.assertIn('Famical v1.4.0',r.text);self.assertIn('?v=1.4.0',r.text)
+  self.assertIn('Famical v1.5.0',r.text);self.assertIn('?v=1.5.0',r.text)
   self.assertEqual(r.headers['Cache-Control'],'no-store')
-  self.assertEqual(r.headers['X-Famical-Version'],'1.4.0')
-  self.assertEqual(c.get('/api/version').json,{'version':'1.4.0'})
+  self.assertEqual(r.headers['X-Famical-Version'],'1.5.0')
+  self.assertEqual(c.get('/api/version').json,{'version':'1.5.0'})
 
  def test_account_shift_preferences_survive_login_and_other_devices(self):
   owner,h=self.client(2)

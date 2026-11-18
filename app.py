@@ -1,15 +1,17 @@
 import os, sqlite3, secrets, time, re, getpass
-from datetime import date
+import hashlib
+from datetime import date, datetime, timezone
 import calendar
 from korean_lunar_calendar import KoreanLunarCalendar
 from pathlib import Path
 from functools import wraps
+from flask.sessions import SecureCookieSessionInterface
 from flask import Flask, request, session, jsonify, render_template, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from calendar_holidays import holidays_for_year
 
-APP_VERSION = '1.4.0'
+APP_VERSION = '1.5.0'
 
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -19,10 +21,22 @@ if not keyfile.exists():
         fd = os.open(keyfile, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'w') as f: f.write(secrets.token_hex(32))
     except FileExistsError: pass
+REMEMBER_DAYS = 90
+NORMAL_DAYS = 7
+
+
+class CalendarSessionInterface(SecureCookieSessionInterface):
+    def get_expiration_time(self, app, session):
+        if session.permanent and 'expires_at' in session:
+            return datetime.fromtimestamp(session['expires_at'], timezone.utc)
+        return super().get_expiration_time(app, session)
+
+
 app = Flask(__name__)
+app.session_interface = CalendarSessionInterface()
 app.config.update(SECRET_KEY=keyfile.read_text(), SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax', SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','true') == 'true',
-    PERMANENT_SESSION_LIFETIME=604800, MAX_CONTENT_LENGTH=16384)
+    SESSION_REFRESH_EACH_REQUEST=False, PERMANENT_SESSION_LIFETIME=REMEMBER_DAYS * 86400, MAX_CONTENT_LENGTH=16384)
 def db():
     con = sqlite3.connect(DATA / 'calendar.db', timeout=20)
     con.row_factory = sqlite3.Row
@@ -32,6 +46,11 @@ with db() as c:
     c.executescript('''CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, name TEXT NOT NULL, password TEXT NOT NULL, admin INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY, title TEXT NOT NULL, day TEXT NOT NULL, clock TEXT NOT NULL, note TEXT NOT NULL, owner INTEGER NOT NULL REFERENCES users(id));
 CREATE TABLE IF NOT EXISTS attempts(username TEXT PRIMARY KEY, count INTEGER, since REAL);''')
+    c.execute("""CREATE TABLE IF NOT EXISTS device_sessions (
+        digest TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at INTEGER NOT NULL
+    )""")
     existing={r[1] for r in c.execute('PRAGMA table_info(events)')}
     for name, definition in [('calendar_type', "TEXT NOT NULL DEFAULT 'solar'"), ('annual', 'INTEGER NOT NULL DEFAULT 0'), ('leap', 'INTEGER NOT NULL DEFAULT 0'), ('end_day', "TEXT NOT NULL DEFAULT ''"), ('visibility', "TEXT NOT NULL DEFAULT 'shared'"), ('color', "TEXT NOT NULL DEFAULT 'sage'")]:
         if name not in existing: c.execute(f'ALTER TABLE events ADD COLUMN {name} {definition}')
@@ -61,6 +80,32 @@ with db() as c:
             if not re.fullmatch(r'[a-zA-Z0-9_.-]{1,40}',initial_username) or not 12<=len(initial_password)<=200 or not 1<=len(initial_name)<=80:
                 raise ValueError('Initial admin: username must be 1-40 ASCII letters/numbers/_.-, password 12-200 characters, name 1-80 characters.')
             c.execute('INSERT INTO users(username,name,password,admin) VALUES(?,?,?,1)',(initial_username,initial_name,generate_password_hash(initial_password)))
+
+def session_digest(token):
+    return hashlib.sha256(token.encode('ascii')).hexdigest()
+
+
+def forget_device(connection):
+    token = session.get('device')
+    if token:
+        connection.execute('DELETE FROM device_sessions WHERE digest=?', (session_digest(token),))
+
+
+@app.before_request
+def check_device_session():
+    if not request.path.startswith('/api/') or 'uid' not in session:
+        return
+    token = session.get('device')
+    if token:
+        with db() as connection:
+            active = connection.execute(
+                'SELECT 1 FROM device_sessions WHERE digest=? AND user_id=? AND expires_at>?',
+                (session_digest(token), session['uid'], time.time())
+            ).fetchone()
+        if active:
+            return
+    session.clear()
+
 
 def user():
     with db() as c: return c.execute('SELECT id, username, name, admin, shift_team, shift_on FROM users WHERE id=?',(session.get('uid'),)).fetchone()
@@ -128,6 +173,9 @@ def preferences():
 @app.post('/api/login')
 def login():
     data=request.get_json() or {}; name=str(data.get('username',''))[:80]; now=time.time()
+    remember = data.get('remember')
+    if 'remember' in data and type(remember) is not bool:
+        abort(400)
     with db() as c:
         attempt=c.execute('SELECT * FROM attempts WHERE username=?',(name,)).fetchone()
         if attempt and now-attempt['since']<900 and attempt['count']>=10: abort(429)
@@ -139,11 +187,27 @@ def login():
             c.commit()
             return jsonify(error='아이디 또는 비밀번호가 맞지 않습니다.'),401
         c.execute('DELETE FROM attempts WHERE username=?',(name,))
-    session.clear(); session['uid']=u['id']; session['csrf']=secrets.token_hex(32); session.permanent=True
+        # Password reset may have raced the password check on this request.
+        if not c.execute('SELECT 1 FROM users WHERE id=? AND password=?', (u['id'], u['password'])).fetchone():
+            abort(401)
+        forget_device(c)
+        c.execute('DELETE FROM device_sessions WHERE expires_at<=?', (now,))
+        token = secrets.token_urlsafe(32)
+        lifetime_days = REMEMBER_DAYS if remember else NORMAL_DAYS
+        expires_at = int(now) + lifetime_days * 86400
+        c.execute('INSERT INTO device_sessions VALUES(?,?,?)', (session_digest(token), u['id'], expires_at))
+    session.clear()
+    session.update(uid=u['id'], csrf=secrets.token_hex(32), device=token, expires_at=expires_at)
+    # API clients predating the checkbox retain their seven-day persistent cookie.
+    session.permanent = remember is not False
     return jsonify(ok=True)
 DUMMY=generate_password_hash(secrets.token_hex(16))
 @app.post('/api/logout')
-def logout(): session.clear(); return jsonify(ok=True)
+def logout():
+    with db() as connection:
+        forget_device(connection)
+    session.clear()
+    return jsonify(ok=True)
 @app.post('/api/password')
 @required
 def password():
@@ -153,6 +217,7 @@ def password():
         u=c.execute('SELECT * FROM users WHERE id=?',(session['uid'],)).fetchone()
         if not check_password_hash(u['password'],str(d.get('old',''))): return jsonify(error='현재 비밀번호가 맞지 않습니다.'),400
         c.execute('UPDATE users SET password=? WHERE id=?',(generate_password_hash(new),u['id']))
+        c.execute('DELETE FROM device_sessions WHERE user_id=?', (u['id'],))
     session.clear()
     return jsonify(ok=True)
 def lunar_to_solar(year, month, day, leap=False):
@@ -278,6 +343,7 @@ if __name__=='__main__':
         else:
             cur=c.execute('UPDATE users SET password=? WHERE username=?',(generate_password_hash(pw),args.username))
             if not cur.rowcount: p.error('사용자를 찾을 수 없습니다.')
+            c.execute('DELETE FROM device_sessions WHERE user_id=(SELECT id FROM users WHERE username=?)', (args.username,))
     print('완료')
 
 @app.get('/sw.js')
