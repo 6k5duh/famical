@@ -1,6 +1,6 @@
-import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.3.0';
+import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.4.0';
 const $ = id => document.getElementById(id);
-let csrf = '', me = null, events = [], lunar = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
+let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
 let prefs = {on:true, team:'A'};
 // The account is authoritative; this mirror is read by the native widgets.
@@ -38,11 +38,11 @@ async function load() {
   if (!me) return;
   const n=++requestNo, epoch=preferenceEpoch, month=iso(cursor).slice(0,7);
   try {
-    const [result,moon,account]=await Promise.all([api('events?month='+month),api('lunar?month='+month),api('me')]);
+    const [result,moon,daysOff,account]=await Promise.all([api('events?month='+month),api('lunar?month='+month),api('holidays?month='+month),api('me')]);
     if (n!==requestNo || !me) return;
     if(!account.user){me=null;show();return;}
     if(epoch===preferenceEpoch&&!savingPreferences){me=account.user;applyPreferences(me);}
-    events=result; lunar=moon; render();
+    events=result; lunar=moon; holidays=daysOff; render();
     $('sync').textContent=`${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 동기화`; say('');
   } catch(e) { say(e.message); }
 }
@@ -64,7 +64,7 @@ function render() {
     const segments=layoutWeek(visible,dates);
     const lanes=segments.length ? Math.max(...segments.map(s=>s.lane))+1 : 0;
     const week=document.createElement('div'); week.className='calendar-week';
-    week.style.gridTemplateRows=`56px ${lanes ? `repeat(${lanes}, 30px) ` : ''}minmax(28px, 1fr)`;
+    week.style.gridTemplateRows=`minmax(68px,auto) ${lanes ? `repeat(${lanes}, 30px) ` : ''}minmax(28px, 1fr)`;
     for(let col=0; col<7; col++) {
       const stamp=dates[col], cell=document.createElement('div'); cell.className='cell';
       cell.style.gridColumn=String(col+1); cell.style.gridRow=`1 / span ${lanes+2}`;
@@ -74,10 +74,32 @@ function render() {
       if(stamp===iso(new Date())) cell.classList.add('today');
       const heading=document.createElement('div'); heading.className='date-heading';
       const num=document.createElement('span'); num.className='date'; num.textContent=day; heading.append(num);
-      if(lunar[stamp]) { const moon=document.createElement('small'); moon.className='lunar'; moon.textContent=lunarLabel(lunar[stamp]); heading.append(moon); }
-      cell.append(heading);
-      if(s) { const tag=document.createElement('span'); tag.className='shift'; tag.textContent=prefs.team==='none'?'주간':`${prefs.team} ${s==='night'?'야간':'주간'}`; cell.append(tag); }
-      cell.tabIndex=0; cell.setAttribute('role','button'); cell.setAttribute('aria-label',`${m+1}월 ${day}일 일정 추가`);
+      if(s) {
+        const tag=document.createElement('span');
+        tag.className='shift';
+        tag.textContent=s==='night'?'야간':'주간';
+        heading.append(tag);
+      }
+      const detail=document.createElement('div');
+      detail.className='day-detail';
+      detail.append(heading);
+      const reason=holidays[stamp];
+      if(reason) {
+        cell.classList.add('holiday');
+        const label=document.createElement('small');
+        label.className='holiday-reason';
+        label.textContent=reason;
+        detail.append(label);
+      }
+      if(lunar[stamp]) {
+        const moon=document.createElement('small');
+        moon.className='lunar';
+        moon.textContent=lunarLabel(lunar[stamp]);
+        heading.append(moon);
+      }
+      cell.append(detail);
+      cell.tabIndex=0; cell.setAttribute('role','button');
+      cell.setAttribute('aria-label',[`${m+1}월 ${day}일`,reason,s && (s==='night'?'야간':'주간'),'일정 추가'].filter(Boolean).join(' '));
       cell.onclick=()=>edit({day:stamp});
       cell.onkeydown=e=>{if(e.target===cell&&(e.key==='Enter'||e.key===' ')){e.preventDefault();edit({day:stamp});}};
       week.append(cell);

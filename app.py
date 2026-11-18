@@ -7,7 +7,9 @@ from functools import wraps
 from flask import Flask, request, session, jsonify, render_template, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 
-APP_VERSION = '1.3.0'
+from calendar_holidays import holidays_for_year
+
+APP_VERSION = '1.4.0'
 
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -167,6 +169,16 @@ def occurrences(event, year):
         else:
             try: yield date(y,sm,sd).isoformat()
             except ValueError: pass
+@app.get('/api/holidays')
+@required
+def holiday_month():
+    month = request.args.get('month', '')
+    if not re.fullmatch(r'(19|20)\d{2}-(0[1-9]|1[0-2])', month):
+        abort(400)
+    dates = holidays_for_year(int(month[:4]))
+    return jsonify({day: reason for day, reason in dates.items() if day.startswith(month)})
+
+
 @app.get('/api/lunar')
 @required
 def lunar_month():

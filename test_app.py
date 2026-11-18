@@ -120,12 +120,30 @@ class CalendarTest(unittest.TestCase):
    with tempfile.TemporaryDirectory() as empty:
     result=subprocess.run([sys.executable,'-c','import app'],env={**env,'DATA_DIR':empty,'INITIAL_ADMIN_PASSWORD':''},capture_output=True,text=True)
     self.assertNotEqual(result.returncode,0);self.assertIn('INITIAL_ADMIN_PASSWORD',result.stderr)
+ def test_holiday_calendar(self):
+  client, _ = self.client(1)
+  def month(value):
+   return client.get('/api/holidays?month='+value).json
+  plan = self.m.holidays_for_year(2027)
+  self.assertEqual({d for d, label in plan.items() if label=='중복휴일'},
+                   {'2027-'+suffix for suffix in ('02-10','05-03','07-19','07-26','08-16','10-04','10-11','12-27')})
+  self.assertEqual(month('2027-02')['2027-02-09'],'설날 대체공휴일')
+  self.assertEqual(month('2027-05')['2027-05-13'],'부처님오신날')
+  self.assertEqual(month('2027-09')['2027-09-15'],'추석')
+  self.assertEqual(month('2027-07')['2027-07-17'],'제헌절')
+  self.assertEqual(month('2027-07')['2027-07-25'],'노조창립일')
+  self.assertEqual([plan[f'2027-08-{d:02}'] for d in range(2,7)],['하기휴무']*5)
+  self.assertEqual(plan['2027-12-29'],'회사창립일')
+  self.assertNotIn('2028-12-29',month('2028-12'))
+  self.assertEqual(month('2028-01')['2028-01-27'],'설날')
+  self.assertEqual(client.get('/api/holidays?month=2027-00').status_code,400)
+
  def test_version_identification(self):
   c=self.app.test_client();r=c.get('/')
-  self.assertIn('Famical v1.3.0',r.text);self.assertIn('?v=1.3.0',r.text)
+  self.assertIn('Famical v1.4.0',r.text);self.assertIn('?v=1.4.0',r.text)
   self.assertEqual(r.headers['Cache-Control'],'no-store')
-  self.assertEqual(r.headers['X-Famical-Version'],'1.3.0')
-  self.assertEqual(c.get('/api/version').json,{'version':'1.3.0'})
+  self.assertEqual(r.headers['X-Famical-Version'],'1.4.0')
+  self.assertEqual(c.get('/api/version').json,{'version':'1.4.0'})
 
  def test_account_shift_preferences_survive_login_and_other_devices(self):
   owner,h=self.client(2)

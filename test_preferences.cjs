@@ -22,7 +22,7 @@ async function setup(){
       if(fail){status=500;body={error:'저장 실패'};}
       else {account={...account,...JSON.parse(opts.body)};body={user:{...account}};}
     }else if(path.startsWith('/api/events'))body=[];
-    else if(path.startsWith('/api/lunar'))body={};else throw Error(path);
+    else if(path.startsWith('/api/lunar')||path.startsWith('/api/holidays'))body={};else throw Error(path);
     return {ok:status===200,status,json:async()=>body};
   };
   const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
