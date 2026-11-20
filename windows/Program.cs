@@ -1,11 +1,13 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Forms = System.Windows.Forms;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shell;
 using System.Xml;
@@ -136,6 +138,25 @@ namespace Famical.Windows
                 SaveSettings();
                 browser.Dispose();
             };
+        }
+
+        private const int ExtendedStyleIndex = -20;
+        private const int ToolWindowStyle = 0x00000080;
+        private const int AppWindowStyle = 0x00040000;
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+        private static extern int GetWindowLong(IntPtr window, int index);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
+        private static extern int SetWindowLong(IntPtr window, int index, int value);
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            // ShowInTaskbar alone still allows Alt+Tab to list a visible borderless window.
+            var handle = new WindowInteropHelper(this).Handle;
+            int style = GetWindowLong(handle, ExtendedStyleIndex);
+            SetWindowLong(handle, ExtendedStyleIndex, (style | ToolWindowStyle) & ~AppWindowStyle);
         }
 
         private void OnFirstLoad(object sender, RoutedEventArgs e)

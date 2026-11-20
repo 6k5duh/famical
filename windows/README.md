@@ -1,6 +1,6 @@
 # Famical for Windows
 
-[Windows x64 다운로드](../downloads/famical-windows-1.1.0-x64.zip)
+[Windows x64 다운로드](../downloads/famical-windows-1.1.1-x64.zip)
 
 1. NAS 웹앱을 v1.7.0 이상으로 업데이트합니다.
 2. Windows 10/11 x64 PC에서 ZIP 전체를 한 폴더에 압축 해제한 뒤 `Famical.exe`를 실행합니다. .NET Framework 4.8과 [Microsoft Edge WebView2 Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)이 필요합니다.
@@ -8,7 +8,7 @@
 
 ## 트레이에서 사용하기
 
-달력을 실행하면 창이 열리고 시계 옆 알림 영역에 Famical 아이콘이 생깁니다. 작업표시줄에는 달력 버튼이 생기지 않습니다.
+달력을 실행하면 창이 열리고 시계 옆 알림 영역에 Famical 아이콘이 생깁니다. 창이 열려 있을 때도 작업표시줄과 Alt+Tab 전환 목록에서 제외됩니다.
 
 - **숨기기** — 창의 **−**, **×** 또는 **Alt+F4**를 누르면 달력이 트레이에서 계속 실행됩니다.
 - **다시 열기** — 트레이 아이콘을 클릭하거나 `Famical.exe`를 다시 실행합니다. 아이콘이 보이지 않으면 시계 옆 **⌃**를 누르세요.
