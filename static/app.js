@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=2.0.0';
+import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=2.0.1';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
@@ -221,8 +221,8 @@ function edit(ev) {
   f.elements.visibility.value=ev.visibility || (quick ? 'private' : 'shared');
   f.elements.annual.checked=!!ev.annual; f.elements.leap.checked=!!ev.leap; dateHelp();
   const allowed=!ev.sync_readonly&&(!ev.id||me.admin||ev.owner===me.id);
-  for(const field of ['title','day','end_day','clock','note','calendar_type','category','color','annual','leap']) f.elements[field].disabled=!allowed;
-  for(const radio of f.querySelectorAll('[name=visibility]')) radio.disabled=!allowed;
+  for(const field of ['title','day','end_day','clock','note','calendar_type','category','annual','leap']) f.elements[field].disabled=!allowed;
+  for(const radio of f.querySelectorAll('[name=visibility],[name=color]')) radio.disabled=!allowed;
   $('save').hidden=!allowed; $('remove').hidden=!ev.id||!allowed;
   $('author').textContent=ev.author?`작성: ${ev.author}${ev.sync_readonly?' · 반복 일정은 원본 휴대전화에서 수정':allowed?'':' · 조회만 가능'}`:'공개 범위 기본값은 모두에게 보이기입니다.';
   if (desktopEntry) {

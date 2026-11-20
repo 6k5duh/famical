@@ -1,10 +1,12 @@
-# Famical v2.0.0
+# Famical v2.0.1
 
-[Android APK 다운로드](famical-android-2.0.0.apk) · [Android 설치 안내](../android/README.md)
+[Android APK 다운로드](famical-android-2.0.1.apk) · [Android 설치 안내](../android/README.md)
 
-[Windows x64 ZIP 다운로드](famical-windows-2.0.0-x64.zip) · [Windows 설치 안내](../windows/README.md)
+[Windows x64 ZIP 다운로드](famical-windows-2.0.1-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
-NAS를 v2.0.0으로 먼저 업데이트하고 기존 데이터 볼륨·관리자 설정 파일을 유지하세요. 앱 설치 후 가족 계정으로 첫 로그인·동기화를 진행합니다. 기본 서버는 `https://famical.ymsh.synology.me/`입니다.
+일정 막대 색상 16가지를 제공하며, 색상 선택창에서 실제 색상 견본을 확인합니다. 달력 배경에 사용하는 색상값은 선택지에서 제외했습니다.
+
+NAS를 v2.0.1으로 먼저 업데이트하고 기존 데이터 볼륨·관리자 설정 파일을 유지하세요. 앱 설치 후 가족 계정으로 첫 로그인·동기화를 진행합니다. 기본 서버는 `https://famical.ymsh.synology.me/`입니다.
 
 Windows와 Android는 기기에서 달력을 그리며, 기기 저장 일정으로 오프라인 조회·추가·수정·삭제를 지원합니다. 재연결 시 변경을 전송하며, 동시에 수정된 일정은 확인 후 적용합니다. 기존 웹앱도 같은 계정과 일정으로 사용할 수 있습니다.
 

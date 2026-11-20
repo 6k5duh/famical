@@ -1,6 +1,6 @@
 {
-  "version_name": "2.0.0",
-  "version_code": 7,
+  "version_name": "2.0.1",
+  "version_code": 8,
   "application_id": "org.famical.calendar",
   "min_sdk": 26,
   "target_sdk": 35,
@@ -9,12 +9,12 @@
   "offline_edits": true,
   "durable_outbox": true,
   "conflict_default": "hold local changes for explicit choice",
-  "minimum_nas_version": "2.0.0",
+  "minimum_nas_version": "2.0.1",
   "app_foreground_sync_seconds": 60,
   "widget_refresh_request_minutes": 60,
   "signing": "Same development certificate as v1.2.1, optimized release build, debugging disabled",
-  "apk_bytes": 92082,
-  "apk_sha256": "76871fd99049efcb0504b17fc8164c5eb7616d0ce47ffd7a450fc59787e1136c",
+  "apk_bytes": 92622,
+  "apk_sha256": "3dbf8d0119939a1aab755d7a50054ca6e5c645cec38ff0c436c404b4d5adcf96",
   "unit_tests": {
     "tests": 41,
     "failures": 0
@@ -24,15 +24,15 @@
     "warnings": 53
   },
   "windows": {
-    "version": "2.0.0",
+    "version": "2.0.1",
     "native_ui": "WPF",
     "local_store": "atomic JSON encrypted with Windows DPAPI",
-    "zip_bytes": 56360,
-    "zip_sha256": "365c71edf51b7f51fa9a81f9378e7017bdf6a4d1572a1193dbaa3d1f9d331e3b",
+    "zip_bytes": 57001,
+    "zip_sha256": "712bc63daa8c357dc9c6880bbfee5cf3e844c6d0d13834b9687ad9f0adf28d70",
     "build_warnings": 0
   },
   "server_tests": {
-    "tests": 30,
+    "tests": 31,
     "failures": 0
   },
   "javascript_tests": {
@@ -43,5 +43,12 @@
   "windows_ui_runtime_tested": false,
   "windows_core_integration": "Production model and HTTP transport tested against Flask on Linux with test-only JSON and encryption adapters",
   "android_background_sync": "persistent network-constrained outbox job and hourly periodic job, subject to OS scheduling",
-  "lost_response_handling": "stable creation keys prevent duplicate creates after a lost response and further offline edits"
+  "lost_response_handling": "stable creation keys prevent duplicate creates after a lost response and further offline edits",
+  "event_palette": {
+    "colors": 16,
+    "calendar_background_colors_excluded": true,
+    "swatches_in_all_editors": true,
+    "minimum_white_text_contrast": 5.19,
+    "web_desktop_mobile_browser_tested": true
+  }
 }

@@ -153,8 +153,7 @@ namespace Famical.Windows
                     button.Content = row;
                     button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
                     button.ToolTip = item.title + progress + " · " + item.author;
-                    var colors = new Dictionary<string, string> { { "sage", "#36705b" }, { "blue", "#3568a1" }, { "rose", "#a74d6d" }, { "amber", "#9d5c1d" }, { "violet", "#7454a1" } };
-                    button.Background = Brush(colors.ContainsKey(item.color) ? colors[item.color] : colors["sage"]);
+                    button.Background = EventPalette.Color(item.color);
                     panel.Children.Add(button);
                 }
                 if (matches.Count > limit)
@@ -261,8 +260,15 @@ namespace Famical.Windows
             detail.Children.Add(leap);
             var type = Choice(detail, "일정 구분", new[] { "가족", "회사" }, item.category == "work" ? 1 : 0);
             var visibility = Choice(detail, "공개 범위", new[] { "모두에게 보이기", "나에게만 보이기" }, item.visibility == "private" ? 1 : 0);
-            var colors = new[] { "sage", "blue", "rose", "amber", "violet" };
-            var color = Choice(detail, "일정 색상", new[] { "초록", "파랑", "분홍", "주황", "보라" }, Array.IndexOf(colors, item.color));
+            var color = Choice(detail, "일정 색상", EventPalette.Labels, Math.Max(0, Array.IndexOf(EventPalette.Ids, item.color)));
+            color.ItemsSource = null;
+            foreach (string id in EventPalette.Ids) {
+                var option = new StackPanel { Orientation = Orientation.Horizontal };
+                option.Children.Add(new Border { Width = 18, Height = 18, Background = EventPalette.Color(id), Margin = new Thickness(0,0,7,0), CornerRadius = new CornerRadius(3) });
+                option.Children.Add(new TextBlock { Text = EventPalette.Labels[Array.IndexOf(EventPalette.Ids,id)], Foreground = Brushes.Black });
+                color.Items.Add(option);
+            }
+            color.SelectedIndex = Math.Max(0, Array.IndexOf(EventPalette.Ids,item.color));
             var note = Field(detail, "메모", item.note, true);
             var error = new TextBlock { TextWrapping = TextWrapping.Wrap };
             form.Children.Add(error);
@@ -282,7 +288,7 @@ namespace Famical.Windows
                     item.leap = leap.IsChecked == true;
                     item.category = type.SelectedIndex == 1 ? "work" : "family";
                     item.visibility = visibility.SelectedIndex == 1 ? "private" : "shared";
-                    item.color = colors[Math.Max(0, color.SelectedIndex)];
+                    item.color = EventPalette.Ids[Math.Max(0, color.SelectedIndex)];
                     var entries = source == null ? titleBox.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries) : new[] { titleBox.Text };
                     var prepared = new List<NativeEvent>();
                     foreach (string line in entries)

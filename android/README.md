@@ -1,13 +1,15 @@
-# Famical for Android v2.0.0
+# Famical for Android v2.0.1
 
-[최신 APK 다운로드](../downloads/famical-android-2.0.0.apk)
+[최신 APK 다운로드](../downloads/famical-android-2.0.1.apk)
 
-1. NAS 소스를 v2.0.0으로 업데이트하고 Container Manager에서 다시 빌드합니다. 기존 계정·일정 데이터 볼륨과 설정 파일은 유지합니다.
+1. NAS 소스를 v2.0.1으로 업데이트하고 Container Manager에서 다시 빌드합니다. 기존 계정·일정 데이터 볼륨과 설정 파일은 유지합니다.
 2. APK를 내려받아 기존 앱 위에 업데이트 설치합니다. Android 8.0 이상이 필요합니다.
 3. 기본 서버 `https://famical.ymsh.synology.me/`의 가족 계정으로 로그인하고 첫 동기화를 마칩니다.
 4. 이후 인터넷·NAS가 끊겨도 앱을 열고 일정을 확인·추가·수정·삭제할 수 있습니다.
 
-v2.0.0은 기본 Android UI와 Canvas로 달력을 그리며 SQLite에 일정·미전송 변경을 함께 저장합니다. 브라우저의 웹앱도 같은 서버에서 계속 사용할 수 있습니다.
+v2.0.1은 기본 Android UI와 Canvas로 달력을 그리며 SQLite에 일정·미전송 변경을 함께 저장합니다. 브라우저의 웹앱도 같은 서버에서 계속 사용할 수 있습니다.
+
+일정 색상은 배경색과 구분되는 16가지이며 선택창에 색상 견본을 표시합니다.
 
 ## 일정과 동기화
 

@@ -91,3 +91,16 @@ class NativeSyncTest(unittest.TestCase):
         fresh['action'] = 'delete'
         self.assertTrue(client.post('/api/native-sync',json=fresh,headers=headers).json['ok'])
         self.assertTrue(client.post('/api/native-sync',json={**fresh,'action':'save','operation':str(uuid.uuid4())},headers=headers).json['conflict'])
+    def test_all_event_colors_roundtrip_without_calendar_backgrounds(self):
+        client, headers = self.client(1)
+        backgrounds = {'#f7efbb','#dce9d8','#f3dfe1','#fbe5e4','#ffffff',
+                       '#293350','#18404f','#392d39','#16344a','#10283a'}
+        palette = self.m.EVENT_COLORS
+        self.assertEqual(len(palette), 16)
+        self.assertFalse(backgrounds & {entry['hex'] for entry in palette})
+        for entry in palette:
+            payload=self.wire(self.event(title='색상 '+entry['id'],color=entry['id']))
+            result=client.post('/api/native-sync',json=payload,headers=headers)
+            self.assertEqual(result.status_code,200)
+            self.assertEqual(result.json['event']['color'],entry['id'])
+        self.assertEqual(client.post('/api/events',json=self.event(color='#f7efbb'),headers=headers).status_code,400)

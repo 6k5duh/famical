@@ -11,7 +11,25 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from calendar_holidays import holidays_for_year
 
-APP_VERSION = '2.0.0'
+APP_VERSION = '2.0.1'
+EVENT_COLORS = [
+    {'id': 'sage', 'label': '숲초록', 'hex': '#36705b'},
+    {'id': 'blue', 'label': '파랑', 'hex': '#3568a1'},
+    {'id': 'rose', 'label': '진분홍', 'hex': '#a74d6d'},
+    {'id': 'amber', 'label': '황토', 'hex': '#9d5c1d'},
+    {'id': 'violet', 'label': '보라', 'hex': '#7454a1'},
+    {'id': 'red', 'label': '빨강', 'hex': '#b52e32'},
+    {'id': 'coral', 'label': '산호', 'hex': '#b9473a'},
+    {'id': 'orange', 'label': '주황', 'hex': '#b84b00'},
+    {'id': 'gold', 'label': '금빛', 'hex': '#876500'},
+    {'id': 'lime', 'label': '올리브', 'hex': '#4f7200'},
+    {'id': 'teal', 'label': '청록', 'hex': '#007a70'},
+    {'id': 'cyan', 'label': '하늘', 'hex': '#007594'},
+    {'id': 'indigo', 'label': '남보라', 'hex': '#5146b8'},
+    {'id': 'magenta', 'label': '자홍', 'hex': '#ac287a'},
+    {'id': 'brown', 'label': '갈색', 'hex': '#84532b'},
+    {'id': 'slate', 'label': '회색', 'hex': '#52616b'},
+]
 
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -139,7 +157,7 @@ def headers(r):
 def error(e): return jsonify(error={400:'입력값을 확인해 주세요.',401:'로그인이 필요합니다.',403:'권한이 없거나 세션이 만료되었습니다. 새로고침해 주세요.',404:'항목을 찾을 수 없습니다.',409:'정보가 변경되었습니다.',413:'입력 내용이 너무 깁니다.',429:'로그인 시도가 많습니다. 15분 후 다시 시도해 주세요.'}.get(e.code,'오류')), e.code
 @app.get('/')
 def index():
-    return render_template('index.html', version=APP_VERSION, desktop=request.args.get('view') == 'desktop')
+    return render_template('index.html', version=APP_VERSION, desktop=request.args.get('view') == 'desktop', event_colors=EVENT_COLORS)
 @app.get('/api/version')
 def version(): return jsonify(version=APP_VERSION)
 
@@ -342,7 +360,7 @@ def write_event(c, eid, d, method):
     if kind not in ('solar','lunar') or type(annual) is not bool or type(leap) is not bool: abort(400)
     end_day=d.get('end_day') or day
     visibility=d.get('visibility','shared'); color=d.get('color','sage')
-    if visibility not in ('shared','private') or color not in ('sage','blue','rose','amber','violet'): abort(400)
+    if visibility not in ('shared','private') or color not in {entry['id'] for entry in EVENT_COLORS}: abort(400)
     if eid and (old['calendar_type']!=kind or bool(old['annual'])!=annual):
         if c.execute('SELECT 1 FROM calendar_links WHERE event_id=?',(eid,)).fetchone():
             return jsonify(error='연동 중인 일정의 날짜 기준·반복 설정은 변경할 수 없습니다. 새 일정으로 등록해 주세요.'),409

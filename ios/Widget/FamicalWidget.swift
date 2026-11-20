@@ -87,7 +87,9 @@ struct CalendarWidgetView:View {
         return shift.isEmpty ? .clear:Color(red:220/255,green:233/255,blue:216/255)
     }
     private func barColor(_ value:String) -> Color {
-        switch value { case "blue":return .blue;case "rose":return .pink;case "amber":return .orange;case "violet":return .purple;default:return green }
+        let colors: [String: UInt32] = ["sage": 0x36705b, "blue": 0x3568a1, "rose": 0xa74d6d, "amber": 0x9d5c1d, "violet": 0x7454a1, "red": 0xb52e32, "coral": 0xb9473a, "orange": 0xb84b00, "gold": 0x876500, "lime": 0x4f7200, "teal": 0x007a70, "cyan": 0x007594, "indigo": 0x5146b8, "magenta": 0xac287a, "brown": 0x84532b, "slate": 0x52616b]
+        let rgb = colors[value] ?? 0x36705b
+        return Color(red: Double((rgb >> 16) & 255)/255, green: Double((rgb >> 8) & 255)/255, blue: Double(rgb & 255)/255)
     }
 }
 @main

@@ -2,7 +2,7 @@
 
 .lunar{display:block;font-size:11px;color:#65705a;margin:2px 0}.cell .shift{display:block;margin-left:0}@media(max-width:600px){.lunar{font-size:9px}.cell{min-height:120px}}
 /* Calendar ranges share a single grid, so their bars cross date-cell borders. */
-#grid{display:block}.calendar-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));position:relative;min-height:120px}.calendar-week .cell{min-height:0;z-index:0}.date-heading{display:flex;align-items:baseline;gap:3px;flex-wrap:wrap}.date-heading .lunar{display:inline;margin:0;font-size:10px;white-space:nowrap}.event-bar{z-index:1;align-self:center;min-width:0;min-height:26px;height:26px;margin:0 3px;padding:3px 7px;text-align:left;font-size:12px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:6px;border:0}.color-sage{background:#36705b;color:#fff}.color-blue{background:#3568a1;color:#fff}.color-rose{background:#a74d6d;color:#fff}.color-amber{background:#9d5c1d;color:#fff}.color-violet{background:#7454a1;color:#fff}.continues-before{margin-left:0;border-top-left-radius:0;border-bottom-left-radius:0}.continues-after{margin-right:0;border-top-right-radius:0;border-bottom-right-radius:0}fieldset{border:1px solid #c9d4cd;border-radius:9px;margin-top:18px;padding:12px}legend{font-weight:600}.visibility-options{display:flex;gap:10px;flex-wrap:wrap}.visibility-options label{display:flex;align-items:center;gap:7px;margin:0 0 10px;padding:8px 10px;background:#f1f4ef;border-radius:7px;cursor:pointer}.visibility-options input[type=radio]{width:18px;height:18px;margin:0;accent-color:#285449}.visibility-options label:has(input:checked){background:#dce9d8;outline:1px solid #285449}@media(max-width:600px){.date-heading{gap:1px}.date-heading .lunar{font-size:8px}.calendar-week .cell{padding:4px 2px}.event-bar{font-size:10px;padding:3px 4px;margin-left:1px;margin-right:1px}.event-bar.continues-before{margin-left:0}.event-bar.continues-after{margin-right:0}}
+#grid{display:block}.calendar-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));position:relative;min-height:120px}.calendar-week .cell{min-height:0;z-index:0}.date-heading{display:flex;align-items:baseline;gap:3px;flex-wrap:wrap}.date-heading .lunar{display:inline;margin:0;font-size:10px;white-space:nowrap}.event-bar{z-index:1;align-self:center;min-width:0;min-height:26px;height:26px;margin:0 3px;padding:3px 7px;text-align:left;font-size:12px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:6px;border:0}.continues-before{margin-left:0;border-top-left-radius:0;border-bottom-left-radius:0}.continues-after{margin-right:0;border-top-right-radius:0;border-bottom-right-radius:0}fieldset{border:1px solid #c9d4cd;border-radius:9px;margin-top:18px;padding:12px}legend{font-weight:600}.visibility-options{display:flex;gap:10px;flex-wrap:wrap}.visibility-options label{display:flex;align-items:center;gap:7px;margin:0 0 10px;padding:8px 10px;background:#f1f4ef;border-radius:7px;cursor:pointer}.visibility-options input[type=radio]{width:18px;height:18px;margin:0;accent-color:#285449}.visibility-options label:has(input:checked){background:#dce9d8;outline:1px solid #285449}@media(max-width:600px){.date-heading{gap:1px}.date-heading .lunar{font-size:8px}.calendar-week .cell{padding:4px 2px}.event-bar{font-size:10px;padding:3px 4px;margin-left:1px;margin-right:1px}.event-bar.continues-before{margin-left:0}.event-bar.continues-after{margin-right:0}}
 @media(max-width:600px){.date-heading{flex-wrap:nowrap;gap:1px}.date-heading .date{font-size:clamp(12px,3.6vw,16px);flex-shrink:0}.date-heading .lunar{font-size:clamp(6px,1.75vw,8px)}.today .date-heading .date{width:17px;height:20px}}
 
 .version{text-align:center;color:#6a7a70;font-size:12px;padding-top:12px}#memberError{color:#a63c35}#membersList{font-size:14px;max-height:180px;overflow:auto}
@@ -61,3 +61,30 @@
 
 /* Adjacent-month dates remain usable while receding behind the current month. */
 .outside-month { opacity: .55; }
+
+/* Event colors are deliberately distinct from calendar day backgrounds. */
+.color-sage { --event-color: #36705b; background: var(--event-color); color: #fff; }
+.color-blue { --event-color: #3568a1; background: var(--event-color); color: #fff; }
+.color-rose { --event-color: #a74d6d; background: var(--event-color); color: #fff; }
+.color-amber { --event-color: #9d5c1d; background: var(--event-color); color: #fff; }
+.color-violet { --event-color: #7454a1; background: var(--event-color); color: #fff; }
+.color-red { --event-color: #b52e32; background: var(--event-color); color: #fff; }
+.color-coral { --event-color: #b9473a; background: var(--event-color); color: #fff; }
+.color-orange { --event-color: #b84b00; background: var(--event-color); color: #fff; }
+.color-gold { --event-color: #876500; background: var(--event-color); color: #fff; }
+.color-lime { --event-color: #4f7200; background: var(--event-color); color: #fff; }
+.color-teal { --event-color: #007a70; background: var(--event-color); color: #fff; }
+.color-cyan { --event-color: #007594; background: var(--event-color); color: #fff; }
+.color-indigo { --event-color: #5146b8; background: var(--event-color); color: #fff; }
+.color-magenta { --event-color: #ac287a; background: var(--event-color); color: #fff; }
+.color-brown { --event-color: #84532b; background: var(--event-color); color: #fff; }
+.color-slate { --event-color: #52616b; background: var(--event-color); color: #fff; }
+
+.event-color-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.event-color-option { display: flex; align-items: center; gap: 4px; margin: 0; padding: 6px 3px; font-size: 12px; cursor: pointer; border: 1px solid transparent; border-radius: 5px; }
+.event-color-option input[type=radio] { width: 15px; height: 15px; margin: 0; padding: 0; border: 0; accent-color: #285449; flex: none; }
+.event-color-option:has(input:checked) { border-color: #285449; background: #eef2ed; }
+.color-swatch { display: inline-block; width: 17px; height: 17px; border-radius: 4px; flex: none; }
+.event-color-option > span:last-child { white-space: nowrap; }
+@media(max-width:600px) { .event-color-options { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media(max-width:360px) { .event-color-options { grid-template-columns: repeat(2,minmax(0,1fr)); } }

@@ -304,13 +304,39 @@ public class MainActivity extends Activity {
               "공개 범위",
               new String[] {"모두에게 보이기", "나에게만 보이기"},
               item.optString("visibility").equals("private") ? 1 : 0);
-      String[] colors = {"sage", "blue", "rose", "amber", "violet"};
+      String[] colors = WidgetEvents.COLOR_IDS;
       Spinner color =
           choice(
               panel,
               "색상",
-              new String[] {"초록", "파랑", "분홍", "주황", "보라"},
+              WidgetEvents.COLOR_LABELS,
               Math.max(0, Arrays.asList(colors).indexOf(item.optString("color"))));
+      color.setAdapter(
+          new ArrayAdapter<String>(
+              this, android.R.layout.simple_spinner_dropdown_item, WidgetEvents.COLOR_LABELS) {
+            private View swatch(View view, int position) {
+              TextView label = (TextView) view;
+              android.graphics.drawable.GradientDrawable square =
+                  new android.graphics.drawable.GradientDrawable();
+              square.setColor(WidgetEvents.color(colors[position]));
+              square.setCornerRadius(dp(3));
+              square.setBounds(0, 0, dp(18), dp(18));
+              label.setCompoundDrawables(square, null, null, null);
+              label.setCompoundDrawablePadding(dp(8));
+              return label;
+            }
+
+            @Override
+            public View getView(int position, View reusable, ViewGroup parent) {
+              return swatch(super.getView(position, reusable, parent), position);
+            }
+
+            @Override
+            public View getDropDownView(int position, View reusable, ViewGroup parent) {
+              return swatch(super.getDropDownView(position, reusable, parent), position);
+            }
+          });
+      color.setSelection(Math.max(0, Arrays.asList(colors).indexOf(item.optString("color"))));
       EditText note = field(panel, "메모", item.optString("note"), true);
       TextView error = text("", 13);
       panel.addView(error);
@@ -370,7 +396,7 @@ public class MainActivity extends Activity {
   private void settings() {
     JSONObject state = store.view(), user = state.optJSONObject("user");
     LinearLayout panel = form();
-    AlertDialog dialog = dialog("설정 · Android v2.0.0", panel);
+    AlertDialog dialog = dialog("설정 · Android v2.0.1", panel);
     if (user != null) {
       panel.addView(text(user.optString("name") + " 님", 18));
       Spinner filter =

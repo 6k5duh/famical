@@ -31,7 +31,7 @@ function monthEntries(events,cfg) {
   return events.filter(e=>cfg.includePrivate||e.visibility!=="private").map(e=>({day:e.day,end_day:e.end_day||e.day,color:e.color||"sage",visibility:e.visibility||"shared"}));
 }
 function eventColors(events,date,cfg) {
-  const day=stamp(date),palette={blue:"3568a1",rose:"a74d6d",amber:"9d5c1d",violet:"7454a1",sage:"36705b"};
+  const day=stamp(date),palette={"sage":"36705b","blue":"3568a1","rose":"a74d6d","amber":"9d5c1d","violet":"7454a1","red":"b52e32","coral":"b9473a","orange":"b84b00","gold":"876500","lime":"4f7200","teal":"007a70","cyan":"007594","indigo":"5146b8","magenta":"ac287a","brown":"84532b","slate":"52616b"};
   return events.filter(e=>e.day<=day&&(e.end_day||e.day)>=day&&(cfg.includePrivate||e.visibility!=="private")).slice(0,3).map(e=>palette[e.color]||palette.sage);
 }
 function sessionCookie(response) {

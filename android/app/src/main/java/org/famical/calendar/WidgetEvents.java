@@ -54,13 +54,11 @@ final class WidgetEvents {
         } catch(JSONException ignored) { /* Missing/corrupt cache: no schedule markers. */ }
         return result;
     }
+    static final String[] COLOR_IDS = {"sage","blue","rose","amber","violet","red","coral","orange","gold","lime","teal","cyan","indigo","magenta","brown","slate"};
+    static final String[] COLOR_LABELS = {"숲초록","파랑","진분홍","황토","보라","빨강","산호","주황","금빛","올리브","청록","하늘","남보라","자홍","갈색","회색"};
+    private static final int[] COLORS = {0xff36705b,0xff3568a1,0xffa74d6d,0xff9d5c1d,0xff7454a1,0xffb52e32,0xffb9473a,0xffb84b00,0xff876500,0xff4f7200,0xff007a70,0xff007594,0xff5146b8,0xffac287a,0xff84532b,0xff52616b};
     static int color(String value) {
-        switch(value) {
-            case "blue":return Color.rgb(53,104,161);
-            case "rose":return Color.rgb(167,77,109);
-            case "amber":return Color.rgb(157,92,29);
-            case "violet":return Color.rgb(116,84,161);
-            default:return Color.rgb(54,112,91);
-        }
+        int index = java.util.Arrays.asList(COLOR_IDS).indexOf(value);
+        return COLORS[Math.max(0,index)];
     }
 }
