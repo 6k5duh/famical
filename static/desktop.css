@@ -33,7 +33,6 @@
 .desktop .cell.day { background: var(--day); }
 .desktop .cell.night { background: var(--night); }
 .desktop .cell.weekend, .desktop .cell.holiday { background: var(--weekend); }
-.desktop .cell.blank { background: #112838; }
 .desktop .cell.today { box-shadow: inset 0 0 0 2px #efc972; }
 .desktop .today .date { color: #172e3e; background: #efc972; }
 .desktop .date { font-size: 16px; }

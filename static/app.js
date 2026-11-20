@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=1.7.2';
+import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=1.7.3';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
@@ -36,13 +36,29 @@ async function boot() {
 }
 async function load() {
   if (!me) return;
-  const n=++requestNo, epoch=preferenceEpoch, month=iso(cursor).slice(0,7);
+  const n=++requestNo, epoch=preferenceEpoch;
+  const year=cursor.getFullYear(), month=cursor.getMonth();
+  const first=new Date(year,month,1), last=new Date(year,month+1,0);
+  const gridStart=new Date(year,month,1-first.getDay());
+  const gridEnd=new Date(year,month,last.getDate()+6-last.getDay());
+  const months=[...new Set([gridStart,first,gridEnd].map(day=>iso(day).slice(0,7)))]
+    .filter(value=>/^(19|20)\d{2}-/.test(value));
   try {
-    const [result,moon,daysOff,account]=await Promise.all([api('events?month='+month),api('lunar?month='+month),api('holidays?month='+month),api('me')]);
+    const [pages,account]=await Promise.all([
+      Promise.all(months.map(value=>Promise.all([
+        api('events?month='+value),api('lunar?month='+value),api('holidays?month='+value)
+      ]))),
+      api('me')
+    ]);
     if (n!==requestNo || !me) return;
     if(!account.user){me=null;show();return;}
     if(epoch===preferenceEpoch&&!savingPreferences){me=account.user;applyPreferences(me);}
-    events=result; lunar=moon; holidays=daysOff; render();
+    // A range crossing a month boundary is returned by both monthly requests.
+    events=[...new Map(pages.flatMap(page=>page[0]).map(event=>
+      [JSON.stringify([event.id,event.day,event.end_day]),event])).values()];
+    lunar=Object.assign({},...pages.map(page=>page[1]));
+    holidays=Object.assign({},...pages.map(page=>page[2]));
+    render();
     $('sync').textContent=`${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 동기화`; say('');
   } catch(e) { say(e.message); }
 }
@@ -68,7 +84,7 @@ function render() {
   const condensed = desktopEntry && (rowHeight < 62 || grid.clientWidth < 500);
   if (desktopEntry) grid.classList.toggle('compact-weeks', rowHeight < 62);
   for (let base=0; base<offset+last; base+=7) {
-    const dates=Array.from({length:7},(_,col)=>{const day=base+col-offset+1; return day>=1&&day<=last ? iso(new Date(y,m,day)) : null;});
+    const dates=Array.from({length:7},(_,col)=>iso(new Date(y,m,base+col-offset+1)));
     const segments=layoutWeek(visible,dates);
     const totalLanes=segments.length ? Math.max(...segments.map(s=>s.lane))+1 : 0;
     const headerHeight = condensed ? 52 : 68;
@@ -83,8 +99,10 @@ function render() {
     for(let col=0; col<7; col++) {
       const stamp=dates[col], cell=document.createElement('div'); cell.className='cell';
       cell.style.gridColumn=String(col+1); cell.style.gridRow=desktopEntry ? '1 / -1' : `1 / span ${lanes+2}`;
-      if(!stamp) { cell.classList.add('blank'); week.append(cell); continue; }
-      const day=Number(stamp.slice(-2)), d=new Date(y,m,day), s=shift(d);
+      const d=new Date(y,m,base+col-offset+1), day=d.getDate(), s=shift(d);
+      const outsideMonth=d.getMonth()!==m || d.getFullYear()!==y;
+      cell.setAttribute('data-date',stamp);
+      if(outsideMonth) cell.classList.add('outside-month');
       if([0,6].includes(col)) cell.classList.add('weekend'); if(s) cell.classList.add(s);
       if(stamp===iso(new Date())) cell.classList.add('today');
       const heading=document.createElement('div'); heading.className='date-heading';
@@ -114,7 +132,7 @@ function render() {
       }
       cell.append(detail);
       cell.tabIndex=0; cell.setAttribute('role','button');
-      cell.setAttribute('aria-label',[`${m+1}월 ${day}일`,reason,s && (s==='night'?'야간':'주간'),'일정 추가'].filter(Boolean).join(' '));
+      cell.setAttribute('aria-label',[`${d.getFullYear()}년 ${d.getMonth()+1}월 ${day}일`,reason,s && (s==='night'?'야간':'주간'),'일정 추가'].filter(Boolean).join(' '));
       cell.onclick=()=>edit({day:stamp});
       cell.onkeydown=e=>{if(e.target===cell&&(e.key==='Enter'||e.key===' ')){e.preventDefault();edit({day:stamp});}};
       week.append(cell);
@@ -123,7 +141,7 @@ function render() {
         const hiddenCount = inDay.filter(item => item.lane >= lanes).length;
         if (hiddenCount) {
           const more = document.createElement('button');
-          more.className = 'day-overflow';
+          more.className = 'day-overflow' + (outsideMonth ? ' outside-month' : '');
           more.style.gridColumn = String(col + 1);
           more.style.gridRow = '-2 / -1';
           more.textContent = '+' + hiddenCount + '개';
@@ -139,6 +157,14 @@ function render() {
       b.className=`event-bar color-${ev.color}${segment.continuesBefore?' continues-before':''}${segment.continuesAfter?' continues-after':''}`;
       b.style.gridColumn=`${segment.startColumn+1} / ${segment.endColumn+2}`;
       b.style.gridRow=String(segment.lane+2);
+      const spanDates=dates.slice(segment.startColumn,segment.endColumn+1);
+      const currentColumns=spanDates.map(date=>date.slice(0,7)===iso(cursor).slice(0,7));
+      const firstCurrent=currentColumns.indexOf(true), lastCurrent=currentColumns.lastIndexOf(true);
+      if(firstCurrent<0) b.classList.add('outside-month');
+      else if(firstCurrent>0 || lastCurrent<spanDates.length-1) {
+        const start=100*firstCurrent/spanDates.length, end=100*(lastCurrent+1)/spanDates.length;
+        b.style.maskImage=`linear-gradient(to right, #0009 0% ${start}%, #000 ${start}% ${end}%, #0009 ${end}% 100%)`;
+      }
       const categoryLabel = ev.category === 'work' ? '회사' : '가족';
       const label = document.createElement('span');
       const prefix = document.createElement('span');
