@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.7.0';
+import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=1.7.1';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
@@ -140,8 +140,24 @@ function render() {
       b.style.gridColumn=`${segment.startColumn+1} / ${segment.endColumn+2}`;
       b.style.gridRow=String(segment.lane+2);
       const categoryLabel = ev.category === 'work' ? '회사' : '가족';
-      b.textContent=`${segment.continuesBefore?'‹ ':''}${ev.visibility==='private'?'🔒 ':''}[${categoryLabel}] ${ev.clock||''} ${ev.title}${ev.annual?' ↻':''}${segment.continuesAfter?' ›':''}`.trim();
-      b.title=`${categoryLabel} · ${ev.title} · ${ev.day} ~ ${ev.end_day} · ${ev.author}${ev.visibility==='private'?' · 나에게만':''}`;
+      const label = document.createElement('span');
+      const prefix = document.createElement('span');
+      prefix.className = 'event-prefix';
+      prefix.textContent = `${ev.visibility === 'private' ? '🔒 ' : ''}[${categoryLabel}] `;
+      label.append(prefix, [ev.clock, ev.title].filter(Boolean).join(' ') + (ev.annual ? ' ↻' : ''));
+      b.append(label);
+      if (segment.progress) {
+        b.classList.add('work-range');
+        label.className = 'work-range-title';
+        const count = document.createElement('span');
+        count.className = 'work-progress';
+        count.textContent = segment.progress;
+        b.append(count);
+      } else {
+        if (segment.continuesBefore) b.prepend('‹ ');
+        if (segment.continuesAfter) b.append(' ›');
+      }
+      b.title=`${categoryLabel} · ${ev.title}${segment.progress ? ' ' + segment.progress : ''} · ${ev.day} ~ ${ev.end_day} · ${ev.author}${ev.visibility==='private'?' · 나에게만':''}`;
       b.setAttribute('aria-label',b.title); b.onclick=()=>edit(ev); week.append(b);
     }
     grid.append(week);
@@ -154,7 +170,7 @@ function showAgenda(day, items, reason) {
   list.replaceChildren();
   for (const item of items) {
     const row = document.createElement('button');
-    row.textContent = [item.clock, item.title].filter(Boolean).join(' ');
+    row.textContent = [item.clock, item.title, workProgress(item, day)].filter(Boolean).join(' ');
     row.onclick = () => { dialog.close(); edit(item); };
     list.append(row);
   }

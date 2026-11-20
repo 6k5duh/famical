@@ -48,3 +48,13 @@
   .date-heading .lunar { grid-area: 2 / 1 / auto / span 2; }
   .holiday-reason { font-size: 9px; }
 }
+
+/* Keep the day count visible even when a long title is truncated. */
+.event-bar.work-range { display: flex; align-items: center; gap: 3px; }
+.work-range-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.work-progress { margin-left: auto; flex: none; font-variant-numeric: tabular-nums; }
+@media (max-width: 680px) {
+  .event-bar.work-range { gap: 1px; padding-inline: 2px; }
+  .work-range .event-prefix { display: none; }
+  .work-progress { font-size: 9px; }
+}

@@ -213,10 +213,10 @@ class CalendarTest(unittest.TestCase):
 
  def test_version_identification(self):
   c=self.app.test_client();r=c.get('/')
-  self.assertIn('Famical v1.7.0',r.text);self.assertIn('?v=1.7.0',r.text)
+  self.assertIn('Famical v1.7.1',r.text);self.assertIn('?v=1.7.1',r.text)
   self.assertEqual(r.headers['Cache-Control'],'no-store')
-  self.assertEqual(r.headers['X-Famical-Version'],'1.7.0')
-  self.assertEqual(c.get('/api/version').json,{'version':'1.7.0'})
+  self.assertEqual(r.headers['X-Famical-Version'],'1.7.1')
+  self.assertEqual(c.get('/api/version').json,{'version':'1.7.1'})
 
  def test_account_shift_preferences_survive_login_and_other_devices(self):
   owner,h=self.client(2)

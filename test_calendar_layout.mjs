@@ -18,3 +18,19 @@ test('bars continue across weeks and empty month cells are excluded',()=>{
  assert.equal(end.startColumn,2);assert.equal(end.endColumn,4);assert.equal(end.continuesAfter,false);
  assert.equal(layoutWeek([event(2,'2027-01-01','2027-01-02')],dates).length,0);
 });
+
+test('company bars show inclusive progress from the true start even in a new year or week',()=>{
+ const work={...event(1,'2026-12-26','2027-01-03'),category:'work'};
+ const family={...work,id:2,category:'family'};
+ const days=[null,null,null,null,null,'2027-01-01','2027-01-02'];
+ const rows=layoutWeek([work,family],days);
+ const parts=rows.filter(r=>r.event===work);
+ assert.deepEqual(parts.map(r=>[r.startColumn,r.endColumn,r.progress]),[[5,5,'(7/9)'],[6,6,'(8/9)']]);
+ assert.equal(parts[0].lane,parts[1].lane);
+ assert.equal(rows.filter(r=>r.event===family).length,1);
+ assert.notEqual(rows.find(r=>r.event===family).lane,parts[0].lane);
+ const tail=layoutWeek([work],['2027-01-03',null,null,null,null,null,null]);
+ assert.equal(tail[0].progress,'(9/9)');
+ const single={...event(3,dates[1],dates[1]),category:'work'};
+ assert.equal(layoutWeek([single],dates)[0].progress,undefined);
+});
