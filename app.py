@@ -1,6 +1,6 @@
 import os, sqlite3, secrets, time, re, getpass
 import hashlib
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import calendar
 from korean_lunar_calendar import KoreanLunarCalendar
 from pathlib import Path
@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from calendar_holidays import holidays_for_year
 
-APP_VERSION = '1.7.1'
+APP_VERSION = '1.7.2'
 
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -279,6 +279,30 @@ def event_spans(event, year):
             if 0 <= (b-a).days <= 365: yield a.isoformat(),b.isoformat()
         except ValueError: continue
 
+def calendar_segments(event, start, end):
+    # Widgets use day/end_day directly. Give every client the same visible weekdays.
+    if event['category'] != 'work' or start == end:
+        yield {'day': start, 'end_day': end}
+        return
+
+    current = date.fromisoformat(start)
+    last = date.fromisoformat(end)
+    if current.weekday() >= 5:
+        current += timedelta(days=7 - current.weekday())
+
+    spans = []
+    elapsed = 0
+    while current <= last:
+        friday = current + timedelta(days=4 - current.weekday())
+        through = min(friday, last)
+        spans.append((current, through, elapsed))
+        elapsed += (through - current).days + 1
+        current = friday + timedelta(days=3)
+    for first, through, offset in spans:
+        yield {'day': first.isoformat(), 'end_day': through.isoformat(),
+               'occurrence_start': start, 'occurrence_end': end,
+               'work_day_offset': offset, 'work_day_total': elapsed}
+
 @app.get('/api/events')
 @required
 def events():
@@ -292,8 +316,11 @@ def events():
     for row in rows:
         e=dict(row)
         for start,end in event_spans(e,y):
-            if start<=last and end>=first:
-                result.append({**e,'source_day':e['day'],'source_end_day':e['end_day'],'day':start,'end_day':end})
+            if start > last or end < first:
+                continue
+            for segment in calendar_segments(e, start, end):
+                if segment['day'] <= last and segment['end_day'] >= first:
+                    result.append({**e, 'source_day': e['day'], 'source_end_day': e['end_day'], **segment})
     return jsonify(sorted(result,key=lambda e:(e['day'],e['clock'],e['id'])))
 @app.route('/api/events',methods=['POST'])
 @app.route('/api/events/<int:eid>',methods=['PUT','DELETE'])

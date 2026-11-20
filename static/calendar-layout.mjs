@@ -2,12 +2,12 @@ export function lunarLabel(value) {
   return value ? `(${value.leap ? '윤' : '음'} ${value.month}.${value.day})` : '';
 }
 
-// The API supplies the full solar dates of this occurrence, including lunar/annual events.
+// Each work segment is one uninterrupted run of weekdays within the occurrence.
 export function workProgress(event, date) {
-  if (event.category !== 'work' || !event.end_day || event.day === event.end_day) return '';
+  if (!event.work_day_total) return '';
   const dayNumber = stamp => Date.parse(stamp + 'T00:00:00Z') / 86400000;
-  const start = dayNumber(event.day);
-  return `(${dayNumber(date) - start + 1}/${dayNumber(event.end_day) - start + 1})`;
+  const elapsed = event.work_day_offset + dayNumber(date) - dayNumber(event.day) + 1;
+  return `(${elapsed}/${event.work_day_total})`;
 }
 
 // Allocate lanes for whole spans first so adjacent days keep the same vertical position.
@@ -31,7 +31,7 @@ export function layoutWeek(events, dates) {
   }
   return segments.flatMap(segment => {
     const {event, startColumn, endColumn} = segment;
-    if (event.category !== 'work' || event.day === event.end_day || !event.end_day) return [segment];
+    if (!event.work_day_total) return [segment];
     return dates.slice(startColumn, endColumn + 1).map((date, offset) => ({
       ...segment,
       startColumn: startColumn + offset,

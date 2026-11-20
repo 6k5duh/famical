@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=1.7.1';
+import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=1.7.2';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
@@ -157,7 +157,7 @@ function render() {
         if (segment.continuesBefore) b.prepend('‹ ');
         if (segment.continuesAfter) b.append(' ›');
       }
-      b.title=`${categoryLabel} · ${ev.title}${segment.progress ? ' ' + segment.progress : ''} · ${ev.day} ~ ${ev.end_day} · ${ev.author}${ev.visibility==='private'?' · 나에게만':''}`;
+      b.title=`${categoryLabel} · ${ev.title}${segment.progress ? ' ' + segment.progress : ''} · ${ev.occurrence_start || ev.day} ~ ${ev.occurrence_end || ev.end_day} · ${ev.author}${ev.visibility==='private'?' · 나에게만':''}`;
       b.setAttribute('aria-label',b.title); b.onclick=()=>edit(ev); week.append(b);
     }
     grid.append(week);

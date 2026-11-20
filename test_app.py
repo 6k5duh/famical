@@ -77,6 +77,23 @@ class CalendarTest(unittest.TestCase):
   feb=c.get('/api/events?month=2026-02').json
   e=next(e for e in feb if e['title']=='음력 연말');self.assertEqual((e['day'],e['end_day']),('2026-02-16','2026-02-18'))
   self.assertFalse(any(e['title']=='연말 여행' for e in c.get('/api/events?month=2028-02').json))
+ def test_company_calendar_weekdays(self):
+  c,h=self.client(1)
+  start,end='2026-11-20','2026-11-24'
+  work=self.event(title='평일 교육', category='work', day=start, end_day=end)
+  self.assertEqual(c.post('/api/events',json=work,headers=h).status_code,200)
+  rows=[r for r in c.get('/api/events?month=2026-11').json if r['title']==work['title']]
+  self.assertEqual([(r['day'],r['end_day'],r['work_day_offset'],r['work_day_total']) for r in rows],
+                   [(start,start,0,3),('2026-11-23',end,1,3)])
+  self.assertEqual({(r['source_day'],r['source_end_day']) for r in rows},{(start,end)})
+  self.assertEqual(len({r['id'] for r in rows}),1)
+  segments=lambda a,b:list(self.m.calendar_segments(work,a,b))
+  self.assertEqual(segments('2026-11-21','2026-11-22'),[])
+  self.assertEqual(segments('2026-11-21','2026-11-21'),[{'day':'2026-11-21','end_day':'2026-11-21'}])
+  holiday=segments('2026-12-26','2027-01-03')
+  self.assertEqual([(r['day'],r['end_day'],r['work_day_total']) for r in holiday],
+                   [('2026-12-28','2027-01-01',5)])
+  self.assertEqual(list(self.m.calendar_segments({'category':'family'},start,end)),[{'day':start,'end_day':end}])
  def test_range_validation_and_defaults(self):
   c,h=self.client(1)
   for d in [self.event(end_day='2026-11-16'),self.event(end_day='2028-01-01'),self.event(end_day='2026-02-30'),self.event(visibility='invalid'),self.event(color='invalid')]:
@@ -213,10 +230,10 @@ class CalendarTest(unittest.TestCase):
 
  def test_version_identification(self):
   c=self.app.test_client();r=c.get('/')
-  self.assertIn('Famical v1.7.1',r.text);self.assertIn('?v=1.7.1',r.text)
+  self.assertIn('Famical v1.7.2',r.text);self.assertIn('?v=1.7.2',r.text)
   self.assertEqual(r.headers['Cache-Control'],'no-store')
-  self.assertEqual(r.headers['X-Famical-Version'],'1.7.1')
-  self.assertEqual(c.get('/api/version').json,{'version':'1.7.1'})
+  self.assertEqual(r.headers['X-Famical-Version'],'1.7.2')
+  self.assertEqual(c.get('/api/version').json,{'version':'1.7.2'})
 
  def test_account_shift_preferences_survive_login_and_other_devices(self):
   owner,h=self.client(2)

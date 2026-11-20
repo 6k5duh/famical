@@ -19,18 +19,21 @@ test('bars continue across weeks and empty month cells are excluded',()=>{
  assert.equal(layoutWeek([event(2,'2027-01-01','2027-01-02')],dates).length,0);
 });
 
-test('company bars show inclusive progress from the true start even in a new year or week',()=>{
- const work={...event(1,'2026-12-26','2027-01-03'),category:'work'};
- const family={...work,id:2,category:'family'};
- const days=[null,null,null,null,null,'2027-01-01','2027-01-02'];
- const rows=layoutWeek([work,family],days);
- const parts=rows.filter(r=>r.event===work);
- assert.deepEqual(parts.map(r=>[r.startColumn,r.endColumn,r.progress]),[[5,5,'(7/9)'],[6,6,'(8/9)']]);
+test('work bars use weekday offsets, including a single Friday segment and a new month',()=>{
+ const fri={...event(1,'2026-11-20','2026-11-20'),category:'work',work_day_offset:0,work_day_total:3};
+ const mon={...fri,day:dates[1],end_day:dates[2],work_day_offset:1};
+ const family=event(2,'2026-11-20',dates[2]);
+ const prior=['2026-11-15','2026-11-16','2026-11-17','2026-11-18','2026-11-19','2026-11-20','2026-11-21'];
+ const render=days=>layoutWeek([fri,mon,family],days);
+ assert.deepEqual(render(prior).filter(s=>s.event===fri).map(s=>[s.startColumn,s.progress]),[[5,'(1/3)']]);
+ const rows=render(dates);
+ const parts=rows.filter(s=>s.event===mon);
+ assert.deepEqual(parts.map(s=>[s.startColumn,s.progress]),[[1,'(2/3)'],[2,'(3/3)']]);
  assert.equal(parts[0].lane,parts[1].lane);
- assert.equal(rows.filter(r=>r.event===family).length,1);
- assert.notEqual(rows.find(r=>r.event===family).lane,parts[0].lane);
- const tail=layoutWeek([work],['2027-01-03',null,null,null,null,null,null]);
- assert.equal(tail[0].progress,'(9/9)');
- const single={...event(3,dates[1],dates[1]),category:'work'};
+ assert.equal(rows.find(s=>s.event===family).startColumn,0);
+ const newYear={...fri,day:'2026-12-28',end_day:'2027-01-01',work_day_total:5};
+ const clipped=layoutWeek([newYear],[null,null,null,null,null,'2027-01-01','2027-01-02']);
+ assert.deepEqual(clipped.map(s=>[s.startColumn,s.progress]),[[5,'(5/5)']]);
+ const single={...event(3,dates[0],dates[0]),category:'work'};
  assert.equal(layoutWeek([single],dates)[0].progress,undefined);
 });
