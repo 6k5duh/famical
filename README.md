@@ -1,6 +1,12 @@
-# Famical v1.2.0 — 우리 가족 달력
+# Famical v2.0.0 — 우리 가족 달력
 
 Synology DS920+에서 Docker로 실행하고, 갤럭시·iPhone 브라우저와 홈 화면 앱으로 함께 쓰는 가족 캘린더입니다.
+
+Windows와 Android는 네이티브 달력·기기 저장·오프라인 편집·재연결 동기화를 지원합니다. NAS 웹앱도 같은 계정과 일정으로 사용할 수 있습니다.
+
+[Windows 설치 파일과 안내](windows/README.md) · [Android APK와 안내](android/README.md)
+
+기존 사용자는 NAS를 v2.0.0으로 먼저 업데이트한 뒤 각 앱을 설치합니다. 기존 데이터 볼륨과 `initial-admin.env`를 유지하고 앱에서 첫 로그인·동기화를 진행하세요.
 
 **처음 설치:** [Synology A to Z 설치 안내](setupmanual.md)
 
@@ -8,7 +14,7 @@ Synology DS920+에서 Docker로 실행하고, 갤럭시·iPhone 브라우저와 
 
 **iPhone 앱·위젯 소스:** [iOS 설치·서명 조건 및 빌드 안내](ios/README.md) — 서명된 iPhone 설치 파일은 아직 제공하지 않습니다.
 
-v1.2.0은 새 폴더 `docker/famical`, 이미지 `famical:1.2.0`, 컨테이너 `famical`, 데이터 볼륨 `famical-data`를 사용합니다. 이전 버전의 `family-calendar-data`는 자동으로 연결하지 않습니다. 기존 계정·일정을 유지하려면 볼륨을 별도로 이전해야 하며, 이 안내서는 새 설치 기준입니다.
+현재 구성은 폴더 `docker/famical`, 이미지 `famical:2.0.0`, 컨테이너 `famical`, 데이터 볼륨 `famical-data`를 사용합니다. 이전 버전의 `family-calendar-data`는 자동으로 연결하지 않습니다. 기존 계정·일정을 유지하려면 볼륨을 별도로 이전해야 하며, 이 안내서는 새 설치 기준입니다.
 
 ## 기능
 

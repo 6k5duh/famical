@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from calendar_holidays import holidays_for_year
 
-APP_VERSION = '1.7.3'
+APP_VERSION = '2.0.0'
 
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -327,51 +327,59 @@ def events():
 @required
 def save(eid=None):
     with db() as c:
-        if eid is not None:
-            old=c.execute("SELECT * FROM events WHERE id=? AND (visibility='shared' OR owner=?)",(eid,session['uid'])).fetchone()
-            if not old: abort(404)
-            if old['owner']!=session['uid'] and not user()['admin']: abort(403)
-            if old['sync_readonly']:
-                return jsonify(error='휴대전화의 반복 일정입니다. 원본 캘린더에서 수정·삭제해 주세요.'),409
-        if request.method=='DELETE': c.execute('DELETE FROM events WHERE id=?',(eid,)); return jsonify(ok=True)
-        d=request.get_json() or {}
-        title=str(d.get('title','')).strip(); day=str(d.get('day','')); clock=str(d.get('clock','')); note=str(d.get('note',''))
-        kind=d.get('calendar_type','solar'); annual=d.get('annual',False); leap=d.get('leap',False)
-        if kind not in ('solar','lunar') or type(annual) is not bool or type(leap) is not bool: abort(400)
-        end_day=d.get('end_day') or day
-        visibility=d.get('visibility','shared'); color=d.get('color','sage')
-        if visibility not in ('shared','private') or color not in ('sage','blue','rose','amber','violet'): abort(400)
-        if eid and (old['calendar_type']!=kind or bool(old['annual'])!=annual):
-            if c.execute('SELECT 1 FROM calendar_links WHERE event_id=?',(eid,)).fetchone():
-                return jsonify(error='연동 중인 일정의 날짜 기준·반복 설정은 변경할 수 없습니다. 새 일정으로 등록해 주세요.'),409
-        if kind=='solar': leap=False
-        try:
-            start_date=calendar_date(day,kind,leap)
-            end_date=calendar_date(end_day,kind,leap)
-        except (ValueError,TypeError): return jsonify(error='날짜가 유효하지 않습니다. 음력은 윤달 여부도 확인해 주세요.'),400
-        if not 0 <= (end_date-start_date).days <= 365:
-            return jsonify(error='종료일은 시작일 이후여야 하며 일정 기간은 최대 366일입니다.'),400
-        entries = d.get('entries', [{'title': title, 'clock': clock}])
-        if 'entries' in d and eid is not None: abort(400)
-        if not isinstance(entries, list) or not 1 <= len(entries) <= 50 or len(note) > 2000: abort(400)
-        titles_and_times = []
-        for entry in entries:
-            if not isinstance(entry, dict): abort(400)
-            name, start_time = entry.get('title'), entry.get('clock', '')
-            if not isinstance(name, str) or not 1 <= len(name.strip()) <= 100: abort(400)
-            if not isinstance(start_time, str) or (start_time and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', start_time)): abort(400)
-            titles_and_times.append((name.strip(), start_time))
-        category = d.get('category', old['category'] if eid is not None else 'family')
-        if category not in ('family', 'work'):
-            abort(400)
-        for title, clock in titles_and_times:
-            values=(title,day,clock,note,kind,int(annual),int(leap),end_day,visibility,color,category)
-            if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=?,end_day=?,visibility=?,color=?,category=? WHERE id=?',values+(eid,))
-            else: c.execute('INSERT INTO events(id,title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,category,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(next_event_id(c),)+values+(session['uid'],))
-    return jsonify(ok=True)
+        return write_event(c, eid, {} if request.method=='DELETE' else request.get_json() or {}, request.method)
+
+def write_event(c, eid, d, method):
+    if eid is not None:
+        old=c.execute("SELECT * FROM events WHERE id=? AND (visibility='shared' OR owner=?)",(eid,session['uid'])).fetchone()
+        if not old: abort(404)
+        if old['owner']!=session['uid'] and not user()['admin']: abort(403)
+        if old['sync_readonly']:
+            return jsonify(error='휴대전화의 반복 일정입니다. 원본 캘린더에서 수정·삭제해 주세요.'),409
+    if method=='DELETE': c.execute('DELETE FROM events WHERE id=?',(eid,)); return jsonify(ok=True)
+    title=str(d.get('title','')).strip(); day=str(d.get('day','')); clock=str(d.get('clock','')); note=str(d.get('note',''))
+    kind=d.get('calendar_type','solar'); annual=d.get('annual',False); leap=d.get('leap',False)
+    if kind not in ('solar','lunar') or type(annual) is not bool or type(leap) is not bool: abort(400)
+    end_day=d.get('end_day') or day
+    visibility=d.get('visibility','shared'); color=d.get('color','sage')
+    if visibility not in ('shared','private') or color not in ('sage','blue','rose','amber','violet'): abort(400)
+    if eid and (old['calendar_type']!=kind or bool(old['annual'])!=annual):
+        if c.execute('SELECT 1 FROM calendar_links WHERE event_id=?',(eid,)).fetchone():
+            return jsonify(error='연동 중인 일정의 날짜 기준·반복 설정은 변경할 수 없습니다. 새 일정으로 등록해 주세요.'),409
+    if kind=='solar': leap=False
+    try:
+        start_date=calendar_date(day,kind,leap)
+        end_date=calendar_date(end_day,kind,leap)
+    except (ValueError,TypeError): return jsonify(error='날짜가 유효하지 않습니다. 음력은 윤달 여부도 확인해 주세요.'),400
+    if not 0 <= (end_date-start_date).days <= 365:
+        return jsonify(error='종료일은 시작일 이후여야 하며 일정 기간은 최대 366일입니다.'),400
+    entries = d.get('entries', [{'title': title, 'clock': clock}])
+    if 'entries' in d and eid is not None: abort(400)
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 50 or len(note) > 2000: abort(400)
+    titles_and_times = []
+    for entry in entries:
+        if not isinstance(entry, dict): abort(400)
+        name, start_time = entry.get('title'), entry.get('clock', '')
+        if not isinstance(name, str) or not 1 <= len(name.strip()) <= 100: abort(400)
+        if not isinstance(start_time, str) or (start_time and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', start_time)): abort(400)
+        titles_and_times.append((name.strip(), start_time))
+    category = d.get('category', old['category'] if eid is not None else 'family')
+    if category not in ('family', 'work'):
+        abort(400)
+    ids = []
+    for title, clock in titles_and_times:
+        values=(title,day,clock,note,kind,int(annual),int(leap),end_day,visibility,color,category)
+        target_id = eid or next_event_id(c)
+        ids.append(target_id)
+        if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=?,end_day=?,visibility=?,color=?,category=? WHERE id=?',values+(eid,))
+        else: c.execute('INSERT INTO events(id,title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,category,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(target_id,)+values+(session['uid'],))
+    return jsonify(ok=True, ids=ids)
 
 from calendar_sync import register_sync
 register_sync(app, db, required, calendar_date, event_spans, next_event_id)
+
+from native_sync import register_native_sync
+register_native_sync(app, db, required, user, write_event)
 
 if __name__=='__main__':
     import argparse

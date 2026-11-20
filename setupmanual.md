@@ -1,4 +1,7 @@
-# Famical v1.2.0 — Synology 처음 설치 A to Z
+# Famical v2.0.0 — Synology 처음 설치 A to Z
+
+Windows·Android 네이티브 앱 v2.0.0에는 NAS v2.0.0 이상이 필요합니다. 기존 설치는 소스를 업데이트하고 Container Manager에서 다시 빌드하세요. 기존 데이터 볼륨과 `initial-admin.env`를 유지합니다. [Windows 안내](windows/README.md) · [Android 안내](android/README.md)
+
 
 이 문서는 DSM 7.2 이상 + Container Manager + DS920+ 기준입니다. NAS에 실제로 접속해 설치한 결과가 아니라, 제공 코드에 맞춘 설치 절차입니다. 화면 명칭은 DSM 버전에 따라 조금 다를 수 있습니다.
 
@@ -46,7 +49,7 @@ docker/famical/
     └── 아이콘 파일들
 ```
 
-`Dockerfile`에 `1.2.0`, `compose.yaml`에 `image: famical:1.2.0`이 있는지 확인합니다.
+`Dockerfile`에 `2.0.0`, `compose.yaml`에 `image: famical:2.0.0`이 있는지 확인합니다.
 
 아래에서는 docker 공유 폴더가 `/volume1/docker`에 있는 것을 기준으로 씁니다. 다른 볼륨이면 Container Manager의 경로 선택 화면에서 실제 폴더를 선택하세요.
 
@@ -83,7 +86,7 @@ UTF-8 일반 텍스트로 저장하고, 파일명이 `initial-admin.env.txt`가 
 | 항목 | 값 |
 |---|---|
 | 컨테이너 이름 | `famical` |
-| 이미지 이름 | `famical:1.2.0` |
+| 이미지 이름 | `famical:2.0.0` |
 | 데이터 볼륨 | `famical-data` |
 | NAS 내부 연결 | `127.0.0.1:8090` |
 | 컨테이너 내부 포트 | `8000` |
@@ -117,7 +120,7 @@ UTF-8 일반 텍스트로 저장하고, 파일명이 `initial-admin.env.txt`가 
 
 ## G. 설치 버전 확인
 
-1. 달력 주소를 새로 열고 화면 하단에 **`Famical v1.2.0`**이 표시되는지 확인합니다. 로그인 전에도 표시됩니다.
+1. 달력 주소를 새로 열고 화면 하단에 **`Famical v2.0.0`**이 표시되는지 확인합니다. 로그인 전에도 표시됩니다.
 2. 다음 주소도 확인할 수 있습니다.
 
 ```text
@@ -127,7 +130,7 @@ https://실제캘린더도메인/api/version
 정상 응답:
 
 ```json
-{"version":"1.2.0"}
+{"version":"2.0.0"}
 ```
 
 버전 표시가 없거나 `/api/version`이 404라면 다른 컨테이너나 이전 주소에 연결 중일 수 있습니다. 이 경우 재설치 대신 컨테이너 이름·이미지와 역방향 프록시의 대상 8090을 확인합니다.

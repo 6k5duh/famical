@@ -1,7 +1,7 @@
 services:
   calendar:
     build: .
-    image: famical:1.7.3
+    image: famical:2.0.0
     container_name: famical
     restart: unless-stopped
     ports:

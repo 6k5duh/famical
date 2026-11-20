@@ -38,6 +38,11 @@ public class CalendarWidget extends AppWidgetProvider {
     }
     private static void refresh(Context original,android.content.BroadcastReceiver.PendingResult pending) {
         Context context=original.getApplicationContext();SharedPreferences p=context.getSharedPreferences("famical",Context.MODE_PRIVATE);
+        NativeStore nativeStore=NativeStore.get(context);
+        if(nativeStore.view().optJSONObject("user")!=null) {
+            WORK.execute(()->{try{nativeStore.updateWidget();nativeStore.sync();}finally{if(pending!=null)pending.finish();}});
+            return;
+        }
         String server=p.getString("server","");String cookie;
         try { cookie=server.isEmpty()?null:CookieManager.getInstance().getCookie(server); }
         catch(RuntimeException e) { cookie=null; }
@@ -93,6 +98,7 @@ public class CalendarWidget extends AppWidgetProvider {
         try { byte[] bytes=MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));StringBuilder s=new StringBuilder();for(byte b:bytes)s.append(String.format(Locale.ROOT,"%02x",b));return s.toString(); }
         catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}
     }
+    static void renderCached(Context context) { render(context,"기기 저장 일정"); }
     private static void render(Context context,String status) {
         SharedPreferences p=context.getSharedPreferences("famical",Context.MODE_PRIVATE);
         p.edit().putString("widget_status",status).apply();

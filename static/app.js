@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=1.7.3';
+import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=2.0.0';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';

@@ -1,28 +1,21 @@
-# Windows
+# Famical v2.0.0
 
-[Windows 10/11 x64 실행 파일 ZIP](famical-windows-1.1.1-x64.zip) · [설치 안내](../windows/README.md)
+[Android APK 다운로드](famical-android-2.0.0.apk) · [Android 설치 안내](../android/README.md)
 
-# Android APK download
+[Windows x64 ZIP 다운로드](famical-windows-2.0.0-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
-[**최신 APK v1.2.1 다운로드**](https://github.com/6k5duh/famical/raw/refs/heads/main/downloads/famical-android-1.2.1-debug.apk)
+NAS를 v2.0.0으로 먼저 업데이트하고 기존 데이터 볼륨·관리자 설정 파일을 유지하세요. 앱 설치 후 가족 계정으로 첫 로그인·동기화를 진행합니다. 기본 서버는 `https://famical.ymsh.synology.me/`입니다.
 
-이번 v1.2.1은 기본 서버 자동 연결 업데이트입니다. 처음 실행하거나 저장된 서버 주소가 없으면 **설정된 가족 서버**에 바로 연결합니다. 기존에 직접 저장한 주소가 있으면 해당 주소로 자동 연결하며, 상단 **서버**에서 변경할 수 있습니다. 가족 계정 로그인은 필요합니다.
+Windows와 Android는 기기에서 달력을 그리며, 기기 저장 일정으로 오프라인 조회·추가·수정·삭제를 지원합니다. 재연결 시 변경을 전송하며, 동시에 수정된 일정은 확인 후 적용합니다. 기존 웹앱도 같은 계정과 일정으로 사용할 수 있습니다.
 
-이미 NAS 웹앱 v1.3.0을 사용 중이면 이번에는 APK만 업데이트하세요. 캘린더 양방향 연동·교대조 계정 저장에는 NAS v1.3.0 이상이 필요합니다.
+음력·연간 반복·교대조·회사/가족·공개 범위·평일 연속 일수·인접 달 날짜 표시를 지원합니다. Windows는 크기·투명도 조절, 트레이, Alt+Tab 제외와 간편/상세 입력을 제공합니다. Android는 기존 위젯과 삼성·휴대전화 캘린더 연동을 유지합니다.
 
-- 삼성·휴대전화 캘린더의 일반 일정 양방향 연동: 추가·수정·삭제
-- 선택한 캘린더 하나와 본인 일정만 연결, 가져오는 일정의 공개 범위 선택
-- 반복 일정은 발생일별 가져오기, Famical 음력·연간 일정은 휴대전화에 보기용 표시
-- 동시에 수정한 일정은 보류하고 사용자가 우선할 쪽을 선택
-- 교대조 **해당 없음 (주간)** 추가 및 계정 저장: 재로그인·다른 기기에서 유지
-- 일정 막대·오늘 빨간 테두리·1시간 위젯 갱신 요청 유지
+APK는 R8·리소스 축소를 적용한 릴리스 빌드이며 기존 APK와 같은 개발용 인증서로 서명했습니다. Windows는 .NET Framework 4.8을 사용합니다.
 
-[**업데이트·연동 설정 안내**](../android/CALENDAR_SYNC.md) · [체크섬](SHA256SUMS) · [빌드 정보](build-info.json)
+[체크섬](SHA256SUMS) · [빌드·검증 정보](build-info.json)
 
-Android 모의 캘린더·서버 자동 테스트를 통과했습니다. 실제 삼성 기기·삼성 클라우드 연동은 확인이 필요합니다. 반복 원본 규칙 자체를 양쪽에서 편집하는 기능은 지원하지 않습니다.
+서버 자동 테스트, Android Robolectric 테스트, Windows C# 핵심 모델·통신의 Flask 연동 테스트와 웹 브라우저 검증을 완료했습니다. 실제 Windows UI와 삼성 기기에서의 실행은 확인이 필요합니다.
 
-iPhone Scriptable 위젯도 계정의 교대조 설정을 읽도록 업데이트했습니다. 기존 스크립트를 같은 이름으로 교체하세요.
+iPhone은 기존 웹앱과 Scriptable 위젯을 사용할 수 있습니다. [Scriptable 위젯 파일](FamicalCalendar.scriptable) · [iPhone 안내](../ios/scriptable/README.md)
 
-[Scriptable 위젯 파일](FamicalCalendar.scriptable) · [iPhone 설치 안내](../ios/scriptable/README.md)
-
-이전 APK: [v1.2.0](famical-android-1.2.0-debug.apk) · [v1.1.2](famical-android-1.1.2-debug.apk) · [v1.1.1](famical-android-1.1.1-debug.apk) · [v1.1.0](famical-android-1.1.0-debug.apk) · [v1.0.0](famical-android-1.0.0-debug.apk)
+이전 Android APK는 [v1.2.1](famical-android-1.2.1-debug.apk), 이전 Windows 웹 화면 앱은 [v1.1.1](famical-windows-1.1.1-x64.zip)에서 받을 수 있습니다.

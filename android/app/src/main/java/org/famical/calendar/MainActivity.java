@@ -1,290 +1,709 @@
 package org.famical.calendar;
 
-import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.net.Uri;
-import android.net.http.SslError;
-import android.os.Build;
-import android.os.Bundle;
-import android.view.Gravity;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.WindowInsets;
+import android.app.*;
+import android.content.*;
+import android.os.*;
+import android.view.*;
 import android.webkit.CookieManager;
-import android.webkit.JsResult;
-import android.webkit.SslErrorHandler;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceError;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebStorage;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ProgressBar;
-import android.widget.ScrollView;
-import android.widget.TextView;
-import android.window.OnBackInvokedDispatcher;
+import android.widget.*;
+import java.time.*;
+import java.util.*;
+import org.json.*;
 
 public class MainActivity extends Activity {
-    private static final int BRAND = Color.rgb(40,84,73);
-    private SharedPreferences preferences;
-    private WebView browser;
-    private LinearLayout root, errorPanel;
-    private FrameLayout content;
-    private ScrollView settingsPanel;
-    private ProgressBar progress;
-    private EditText serverInput;
-    private TextView addressError, failureText;
-    private String server = "";
-    private boolean failed;
-
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        preferences = getSharedPreferences("famical", MODE_PRIVATE);
-        server = preferences.getString("server", "");
-        if (server.isEmpty()) {
-            server = ServerAddress.DEFAULT_SERVER;
-            preferences.edit().putString("server", server).apply();
+  private SharedPreferences preferences;
+  private String server;
+  private NativeStore store;
+  private NativeCalendar calendar;
+  private NativeMonthView grid;
+  private TextView title, status;
+  private LinearLayout root;
+  private YearMonth month = YearMonth.now();
+  private String category = "all";
+  private boolean mine;
+  private final Handler timer = new Handler(Looper.getMainLooper());
+  private final Runnable refresh =
+      new Runnable() {
+        public void run() {
+          if (store != null) store.sync();
+          timer.postDelayed(this, 60000);
         }
-        buildScreen();
-        CalendarSync.schedule(this);
-        if (Build.VERSION.SDK_INT >= 33) {
-            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleBack);
-        }
-        if (server.isEmpty()) showSettings(); else loadServer();
-    }
+      };
 
-    @SuppressLint("SetJavaScriptEnabled")
-    private void buildScreen() {
-        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.rgb(246,245,239));
-        root.setOnApplyWindowInsetsListener((view,insets) -> {
-            if (Build.VERSION.SDK_INT >= 30) {
-                android.graphics.Insets i = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
-                view.setPadding(i.left,i.top,i.right,i.bottom);
-            } else {
-                view.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),
-                        insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());
-            }
-            return insets;
-        });
-        LinearLayout toolbar = new LinearLayout(this); toolbar.setGravity(Gravity.CENTER_VERTICAL);
-        toolbar.setPadding(dp(12),dp(4),dp(8),dp(4)); toolbar.setBackgroundColor(BRAND);
-        TextView title = text("우리 가족 달력",18); title.setTextColor(Color.WHITE);
-        toolbar.addView(title,new LinearLayout.LayoutParams(0,dp(48),1)); title.setGravity(Gravity.CENTER_VERTICAL);
-        Button refresh = button("새로고침"); refresh.setOnClickListener(v -> { if(!server.isEmpty()) loadServer(); });
-        Button settings = button("서버"); settings.setOnClickListener(v -> showSettings());
-        toolbar.addView(refresh); toolbar.addView(settings); root.addView(toolbar);
-        progress = new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
-        progress.setMax(100); root.addView(progress,new LinearLayout.LayoutParams(-1,dp(3)));
-        content = new FrameLayout(this); root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
-        browser = new WebView(this);
-        WebSettings ws = browser.getSettings();
-        ws.setJavaScriptEnabled(true); ws.setDomStorageEnabled(true);
-        ws.setAllowFileAccess(false); ws.setAllowContentAccess(false);
-        ws.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        ws.setJavaScriptCanOpenWindowsAutomatically(false); ws.setSupportMultipleWindows(false);
-        ws.setUserAgentString(ws.getUserAgentString()+" FamicalAndroid/1.2.1");
-        WebView.setWebContentsDebuggingEnabled(false);
-        CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(browser,false);
-        browser.setWebViewClient(new WebViewClient() {
-            @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                if (!request.isForMainFrame()) return false;
-                String target=request.getUrl().toString();
-                if (ServerAddress.sameOrigin(server,target)) return false;
-                if (request.hasGesture() && "https".equalsIgnoreCase(request.getUrl().getScheme())) {
-                    try { startActivity(new Intent(Intent.ACTION_VIEW,request.getUrl())); }
-                    catch (android.content.ActivityNotFoundException e) { showFailure("링크를 열 브라우저가 없습니다."); }
-                } else showFailure("설정한 서버와 다른 주소로 이동했습니다. NAS 주소와 역방향 프록시 설정을 확인해 주세요.");
-                return true;
-            }
-            @Override public void onPageStarted(WebView view,String url,android.graphics.Bitmap icon) {
-                failed=false; progress.setVisibility(View.VISIBLE);
-            }
-            @Override public void onPageFinished(WebView view,String url) {
-                progress.setVisibility(View.GONE); CookieManager.getInstance().flush();
-                if(!failed) { errorPanel.setVisibility(View.GONE); browser.setVisibility(View.VISIBLE); }
-            }
-            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error) {
-                if(request.isForMainFrame()) showFailure("서버에 연결할 수 없습니다. 인터넷, NAS 실행 상태와 HTTPS 주소를 확인해 주세요.");
-            }
-            @Override public void onReceivedHttpError(WebView view,WebResourceRequest request,WebResourceResponse response) {
-                if(request.isForMainFrame()) showFailure("서버 응답 오류 (HTTP "+response.getStatusCode()+"). NAS 역방향 프록시와 컨테이너를 확인해 주세요.");
-            }
-            @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,SslError error) {
-                handler.cancel(); showFailure("HTTPS 인증서를 확인할 수 없습니다. 도메인과 일치하는 유효한 인증서를 NAS에 설정해 주세요.");
-            }
-        });
-        browser.setWebChromeClient(new WebChromeClient() {
-            @Override public void onProgressChanged(WebView view,int value) { progress.setProgress(value); }
-            @Override public boolean onJsConfirm(WebView view,String url,String message,JsResult result) {
-                new AlertDialog.Builder(MainActivity.this).setTitle("가족 달력").setMessage(message)
-                    .setPositiveButton("확인",(d,w)->result.confirm()).setNegativeButton("취소",(d,w)->result.cancel())
-                    .setOnCancelListener(d->result.cancel()).show(); return true;
-            }
-            @Override public boolean onJsAlert(WebView view,String url,String message,JsResult result) {
-                new AlertDialog.Builder(MainActivity.this).setTitle("가족 달력").setMessage(message)
-                    .setPositiveButton("확인",(d,w)->result.confirm()).setOnCancelListener(d->result.confirm()).show(); return true;
-            }
-        });
-        content.addView(browser,new FrameLayout.LayoutParams(-1,-1));
-        errorPanel = panel(); errorPanel.setGravity(Gravity.CENTER);
-        failureText=text("",16); errorPanel.addView(failureText);
-        Button retry=button("다시 연결"); retry.setOnClickListener(v->loadServer()); errorPanel.addView(retry);
-        Button change=button("서버 주소 설정"); change.setOnClickListener(v->showSettings()); errorPanel.addView(change);
-        errorPanel.setVisibility(View.GONE); content.addView(errorPanel,new FrameLayout.LayoutParams(-1,-1));
-        buildSettings(); setContentView(root); root.requestApplyInsets();
+  @Override
+  public void onCreate(Bundle state) {
+    super.onCreate(state);
+    preferences = getSharedPreferences("famical", MODE_PRIVATE);
+    server = preferences.getString("server", "");
+    if (server.isEmpty()) {
+      server = ServerAddress.DEFAULT_SERVER;
+      preferences.edit().putString("server", server).apply();
     }
+    calendar = NativeCalendar.get(this);
+    store = NativeStore.get(this);
+    store.changed = this::render;
+    buildScreen();
+    render();
+    CalendarSync.schedule(this);
+    NativeSyncJob.schedule(this, false);
+  }
 
-    private void buildSettings() {
-        settingsPanel=new ScrollView(this); LinearLayout form=panel();
-        TextView heading=text("우리 가족 NAS 연결",25); form.addView(heading);
-        TextView detail=text("기본 가족 서버에 자동으로 연결합니다. 필요하면 HTTPS 주소를 변경할 수 있습니다.\n가족 모두 같은 주소를 사용하면 일정이 함께 공유됩니다.",15); form.addView(detail);
-        TextView label=text("서버 주소",14); form.addView(label);
-        serverInput=new EditText(this); serverInput.setSingleLine(true);
-        serverInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        serverInput.setHint(ServerAddress.DEFAULT_SERVER); serverInput.setTextSize(16); form.addView(serverInput,new LinearLayout.LayoutParams(-1,-2));
-        addressError=text("",14); addressError.setTextColor(Color.rgb(166,60,53)); form.addView(addressError);
-        Button connect=button("연결하기"); form.addView(connect);
-        connect.setOnClickListener(v->{
-            try {
-                String next=ServerAddress.normalize(serverInput.getText().toString());
-                boolean changed=!next.equals(server);
-                if(changed){preferences.edit().putBoolean("sync_enabled",false).apply();CalendarSync.schedule(this);}
-                server=next;
-                preferences.edit().putString("server",server).apply();
-                if(changed) {
-                    WebStorage.getInstance().deleteAllData(); browser.clearHistory(); browser.clearCache(true);
-                    CookieManager.getInstance().removeAllCookies(done->{ loadServer();CalendarWidget.refreshAll(this); });
-                } else loadServer();
-            } catch(IllegalArgumentException e) { addressError.setText(e.getMessage()); }
+  private void buildScreen() {
+    root = new LinearLayout(this);
+    root.setOrientation(LinearLayout.VERTICAL);
+    root.setBackgroundColor(0xfff6f5ef);
+    root.setOnApplyWindowInsetsListener(
+        (v, insets) -> {
+          if (Build.VERSION.SDK_INT >= 30) {
+            android.graphics.Insets i =
+                insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
+            v.setPadding(i.left, i.top, i.right, i.bottom);
+          } else
+            v.setPadding(
+                insets.getSystemWindowInsetLeft(),
+                insets.getSystemWindowInsetTop(),
+                insets.getSystemWindowInsetRight(),
+                insets.getSystemWindowInsetBottom());
+          return insets;
         });
-        TextView note=text("로그인은 연결 후 가족 계정으로 진행합니다.\n이 앱은 NAS 서버와 인터넷 연결이 필요합니다.\n\nAndroid 앱 v1.2.1 · NAS 웹앱과 버전은 별도입니다.",13); form.addView(note);
-        android.widget.CheckBox privateEvents=new android.widget.CheckBox(this);
-        privateEvents.setText("위젯에 나의 개인 일정 표시");
-        privateEvents.setChecked(preferences.getBoolean("widget_private",false));
-        privateEvents.setOnCheckedChangeListener((v,checked)->{preferences.edit().putBoolean("widget_private",checked).remove("widget_lines").remove("widget_day").remove("widget_month_events").remove("widget_month").apply();CalendarWidget.refreshAll(this);});
-        form.addView(privateEvents);
-        Button calendarSync=button("삼성·휴대전화 캘린더 연동");form.addView(calendarSync);calendarSync.setOnClickListener(v->showCalendarSync());
-        TextView widgetNote=text("홈 화면을 길게 누른 뒤 위젯 → 우리 가족 달력을 추가하세요. 위젯은 월 달력·교대조·오늘 일정 최대 3개를 표시합니다. 갱신은 기기 정책에 따라 지연될 수 있습니다.",13);form.addView(widgetNote);
-        settingsPanel.addView(form); settingsPanel.setVisibility(View.GONE);
-        root.addView(settingsPanel,new LinearLayout.LayoutParams(-1,0,1));
-    }
+    LinearLayout bar = new LinearLayout(this);
+    bar.setGravity(Gravity.CENTER_VERTICAL);
+    bar.addView(
+        action(
+            "‹",
+            () -> {
+              month = month.minusMonths(1);
+              render();
+            }));
+    title = text("", 17);
+    bar.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+    bar.addView(
+        action(
+            "›",
+            () -> {
+              month = month.plusMonths(1);
+              render();
+            }));
+    bar.addView(action("+", () -> edit(null, null, LocalDate.now())));
+    bar.addView(action("⚙", this::settings));
+    root.addView(bar);
+    grid = new NativeMonthView(this, calendar);
+    root.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1));
+    status = text("", 11);
+    status.setPadding(dp(8), dp(4), dp(8), dp(4));
+    status.setOnClickListener(v -> store.sync());
+    root.addView(status);
+    setContentView(root);
+    root.requestApplyInsets();
+  }
 
-    private void showCalendarSync() {
-        if(server.isEmpty()){addressError.setText("먼저 서버에 연결하고 가족 계정으로 로그인해 주세요.");return;}
-        String cookie=CookieManager.getInstance().getCookie(server);
-        if(cookie==null){addressError.setText("먼저 가족 계정으로 로그인해 주세요.");return;}
-        if(preferences.getBoolean("sync_enabled",false)||!preferences.getString("sync_connection","").isEmpty()) {
-            new AlertDialog.Builder(this).setTitle("캘린더 연동")
-                .setView(text(preferences.getString("sync_label","")+"\n"+preferences.getString("sync_status","")+"\n\n일반 일정은 양방향으로 반영합니다. 충돌은 기본적으로 보류합니다. 반복·음력 보기용 일정은 원본에서 수정하세요.",14))
-                .setItems(new String[]{"지금 동기화","동시에 수정된 일반 일정: 휴대전화 우선","동시에 수정된 일반 일정: 가족 달력 우선","연동 해제 (기존 일정 보관)","연동 연결·재개"},(d,which)->{
-                    if(which==3){CalendarSync.disconnect(this,cookie,this::syncNotice);return;}
-                    if(which==4){selectCalendar();return;}
-                    if(!preferences.getBoolean("sync_enabled",false)){syncNotice("연동 연결·재개를 선택해 주세요.");return;}
-                    CalendarSync.submit(this,cookie,which==1?"native":which==2?"server":"",this::syncNotice);
-                }).setNegativeButton("닫기",null).show();
-        } else selectCalendar();
+  private void render() {
+    if (isDestroyed()) return;
+    JSONObject state = store.view(), user = state.optJSONObject("user");
+    title.setText(month.getYear() + "년 " + month.getMonthValue() + "월");
+    int count = NativeStore.array(state, "pending").length();
+    status.setText(store.status + (count > 0 ? " · 미전송 " + count + "건" : ""));
+    if (user == null) {
+      grid.setVisibility(View.INVISIBLE);
+      status.setText("가족 계정으로 처음 로그인하면 오프라인에서도 사용할 수 있습니다. 여기를 누르세요.");
+      status.setOnClickListener(v -> login());
+      return;
     }
-    private void selectCalendar() {
-        if(!CalendarSync.permitted(this)) {
-            requestPermissions(new String[]{android.Manifest.permission.READ_CALENDAR,android.Manifest.permission.WRITE_CALENDAR},41);return;
-        }
-        try {
-            java.util.List<DeviceCalendars.Choice> calendars=DeviceCalendars.choices(getContentResolver());
-            if(calendars.isEmpty()){syncNotice("읽기·쓰기가 가능한 캘린더가 없습니다. 삼성 캘린더의 계정 동기화를 확인해 주세요.");return;}
-            new AlertDialog.Builder(this).setTitle("연동할 캘린더 선택")
-                .setItems(calendars.stream().map(Object::toString).toArray(String[]::new),(dialog,which)->{
-                    DeviceCalendars.Choice choice=calendars.get(which);final String[] visibility={"private"};
-                    LinearLayout details=panel();
-                    details.addView(text("선택한 캘린더와 본인의 가족 달력 일정 사이에 추가·수정·삭제를 반영합니다. 다른 가족의 일정은 복사하지 않습니다.\n\n지난달부터 앞으로 약 12개월을 연결합니다. 반복·음력 원본 규칙은 원래 앱에서 수정하세요. 1시간 갱신은 절전 정책에 따라 지연될 수 있습니다.",14));
-                    android.widget.CheckBox exportPrivate=new android.widget.CheckBox(this);
-                    exportPrivate.setText("새 개인 일정도 휴대전화로 내보내기");exportPrivate.setChecked(false);details.addView(exportPrivate);
-                    details.addView(text("내보낸 일정은 선택한 캘린더의 공유 권한을 따릅니다. 이미 연결한 일정은 공개 범위를 바꿔도 연결을 유지합니다.",12));
-                    new AlertDialog.Builder(this).setTitle("양방향 연동 설정")
-                        .setView(details)
-                        .setSingleChoiceItems(new String[]{"가져오는 일정: 나에게만 보이기","가져오는 일정: 모두에게 보이기"},0,(d,index)->visibility[0]=index==0?"private":"shared")
-                        .setPositiveButton("양방향 연동 시작",(d,w)->CalendarSync.connect(this,choice,visibility[0],exportPrivate.isChecked(),CookieManager.getInstance().getCookie(server),this::syncNotice))
-                        .setNegativeButton("취소",null).show();
-                }).setNegativeButton("취소",null).show();
-        }catch(Exception e){syncNotice("캘린더 목록을 읽지 못했습니다. 권한을 확인해 주세요.");}
-    }
-    private void syncNotice(String message) {
-        if(isFinishing()||isDestroyed())return;
-        new AlertDialog.Builder(this).setTitle("캘린더 연동").setMessage(message).setPositiveButton("확인",(d,w)->{if(content.getVisibility()==View.VISIBLE)loadServer();}).show();
-    }
-    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results) {
-        super.onRequestPermissionsResult(request,permissions,results);
-        if(request==41){if(CalendarSync.permitted(this))selectCalendar();else syncNotice("캘린더 권한을 허용해야 연동할 수 있습니다. 가족 달력은 계속 사용할 수 있습니다.");}
-    }
+    grid.setVisibility(View.VISIBLE);
+    status.setOnClickListener(v -> store.sync());
+    grid.display(month, user, store.items(), category, mine, this::agenda);
+    cacheWidget();
+  }
 
-    private void showSettings() {
-        browser.stopLoading(); progress.setVisibility(View.GONE); content.setVisibility(View.GONE);
-        serverInput.setText(server); addressError.setText(""); settingsPanel.setVisibility(View.VISIBLE);
+  private LinearLayout form() {
+    LinearLayout p = new LinearLayout(this);
+    p.setOrientation(LinearLayout.VERTICAL);
+    p.setPadding(dp(18), dp(6), dp(18), dp(12));
+    return p;
+  }
+
+  private TextView text(String value, int size) {
+    TextView v = new TextView(this);
+    v.setText(value);
+    v.setTextSize(size);
+    v.setTextColor(0xff233a32);
+    return v;
+  }
+
+  private Button action(String value, Runnable run) {
+    Button button = new Button(this);
+    button.setText(value);
+    button.setAllCaps(false);
+    button.setMinWidth(0);
+    button.setMinimumWidth(0);
+    button.setPadding(dp(9), 0, dp(9), 0);
+    button.setOnClickListener(v -> run.run());
+    return button;
+  }
+
+  private EditText field(LinearLayout parent, String label, String value, boolean multiline) {
+    TextView heading = text(label, 13);
+    heading.setPadding(0, dp(10), 0, 0);
+    parent.addView(heading);
+    EditText input = new EditText(this);
+    input.setText(value);
+    input.setTextSize(16);
+    input.setSingleLine(!multiline);
+    if (multiline) input.setMinLines(3);
+    parent.addView(input, new LinearLayout.LayoutParams(-1, -2));
+    return input;
+  }
+
+  private EditText dateField(LinearLayout parent, String label, String value) {
+    EditText input = field(parent, label, value, false);
+    input.setInputType(
+        android.text.InputType.TYPE_CLASS_DATETIME
+            | android.text.InputType.TYPE_DATETIME_VARIATION_DATE);
+    input.addTextChangedListener(
+        new android.text.TextWatcher() {
+          public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+          public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+          public void afterTextChanged(android.text.Editable s) {
+            String value = s.toString(), normalized = NativeCalendar.normalize(value);
+            if (!value.equals(normalized)) {
+              input.setText(normalized);
+              input.setSelection(normalized.length());
+            }
+          }
+        });
+    return input;
+  }
+
+  private Spinner choice(LinearLayout parent, String label, String[] options, int selected) {
+    parent.addView(text(label, 13));
+    Spinner spinner = new Spinner(this);
+    spinner.setAdapter(
+        new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, options));
+    spinner.setSelection(selected);
+    parent.addView(spinner);
+    return spinner;
+  }
+
+  private AlertDialog dialog(String name, LinearLayout panel) {
+    ScrollView scroll = new ScrollView(this);
+    scroll.addView(panel);
+    return new AlertDialog.Builder(this)
+        .setTitle(name)
+        .setView(scroll)
+        .setNegativeButton("닫기", null)
+        .create();
+  }
+
+  private void notice(String message) {
+    if (!isFinishing())
+      new AlertDialog.Builder(this).setMessage(message).setPositiveButton("확인", null).show();
+  }
+
+  private void login() {
+    LinearLayout panel = form();
+    EditText username = field(panel, "아이디", "", false), password = field(panel, "비밀번호", "", false);
+    password.setInputType(129);
+    TextView error = text("", 13);
+    panel.addView(error);
+    AlertDialog dialog = dialog("가족 계정 로그인", panel);
+    Button button = action("로그인", () -> {});
+    panel.addView(button);
+    button.setOnClickListener(
+        v -> {
+          button.setEnabled(false);
+          store.login(
+              username.getText().toString(),
+              password.getText().toString(),
+              message -> {
+                button.setEnabled(true);
+                if (message.isEmpty()) dialog.dismiss();
+                else error.setText(message);
+              });
+        });
+    dialog.show();
+  }
+
+  private void agenda(LocalDate date, List<NativeMonthView.Entry> entries) {
+    if (entries.isEmpty()) {
+      edit(null, null, date);
+      return;
     }
-    private void loadServer() {
-        if(server.isEmpty()) { showSettings(); return; }
-        try { server=ServerAddress.normalize(server); }
-        catch(IllegalArgumentException e) { showSettings();addressError.setText(e.getMessage());return; }
-        settingsPanel.setVisibility(View.GONE); content.setVisibility(View.VISIBLE);
-        errorPanel.setVisibility(View.GONE); browser.setVisibility(View.VISIBLE); failed=false;
-        browser.loadUrl(server);
+    String[] names = new String[entries.size() + 1];
+    for (int i = 0; i < entries.size(); i++)
+      names[i] =
+          entries.get(i).event.optString("clock")
+              + " "
+              + entries.get(i).event.optString("title")
+              + entries.get(i).progress(date);
+    names[entries.size()] = "+ 일정 추가";
+    new AlertDialog.Builder(this)
+        .setTitle(date.toString())
+        .setItems(
+            names,
+            (d, n) -> {
+              if (n == entries.size()) edit(null, null, date);
+              else edit(entries.get(n).key, entries.get(n).event, date);
+            })
+        .setNegativeButton("닫기", null)
+        .show();
+  }
+
+  private void edit(String key, JSONObject source, LocalDate date) {
+    JSONObject user = store.view().optJSONObject("user");
+    if (user == null) {
+      login();
+      return;
     }
-    private void showFailure(String message) {
-        failed=true;progress.setVisibility(View.GONE);browser.setVisibility(View.GONE);
-        failureText.setText(message);errorPanel.setVisibility(View.VISIBLE);
-    }
-    private void handleBack() {
-        if(settingsPanel.getVisibility()==View.VISIBLE && !server.isEmpty()) loadServer();
-        else if(browser.getVisibility()==View.VISIBLE && browser.canGoBack()) browser.goBack();
-        else finish();
-    }
-    @SuppressWarnings("deprecation") @Override public void onBackPressed() { handleBack(); }
-    @Override protected void onPause() {
-        browser.evaluateJavascript("localStorage.getItem('familyCalendar.shift')", raw -> {
-            try {
-                Object value=new org.json.JSONTokener(raw).nextValue();
-                if(value instanceof String) {
-                    org.json.JSONObject settings=new org.json.JSONObject((String)value);
-                    String team=settings.optString("team","A");
-                    preferences.edit().putString("widget_team","none".equals(team)?"none":"B".equals(team)?"B":"A").putBoolean("widget_shift",settings.optBoolean("on",true)).apply();
+    try {
+      if (source != null
+          && (source.optInt("sync_readonly") != 0
+              || (source.optLong("owner") != user.optLong("id") && user.optInt("admin") == 0))) {
+        notice(source.optString("title") + "\n" + source.optString("note"));
+        return;
+      }
+      JSONObject item =
+          source == null
+              ? new JSONObject()
+                  .put("day", date.toString())
+                  .put("end_day", date.toString())
+                  .put("owner", user.getLong("id"))
+                  .put("author", user.optString("name"))
+                  .put("category", category.equals("work") ? "work" : "family")
+                  .put("visibility", "shared")
+              : NativeStore.copy(source);
+      LinearLayout panel = form();
+      EditText name = field(panel, "제목", item.optString("title"), false);
+      EditText start = dateField(panel, "시작일 (YYYY-MM-DD · 숫자 8자리)", item.getString("day"));
+      EditText end = dateField(panel, "종료일", item.getString("end_day"));
+      EditText time = field(panel, "시간 (HH:mm · 비우면 종일)", item.optString("clock"), false);
+      Spinner kind =
+          choice(
+              panel,
+              "날짜 기준",
+              new String[] {"양력", "음력"},
+              item.optString("calendar_type").equals("lunar") ? 1 : 0);
+      CheckBox annual = new CheckBox(this);
+      annual.setText("매년 반복");
+      annual.setChecked(item.optBoolean("annual"));
+      panel.addView(annual);
+      CheckBox leap = new CheckBox(this);
+      leap.setText("윤달");
+      leap.setChecked(item.optBoolean("leap"));
+      panel.addView(leap);
+      Spinner type =
+          choice(
+              panel,
+              "일정 구분",
+              new String[] {"가족", "회사"},
+              item.optString("category").equals("work") ? 1 : 0);
+      Spinner visibility =
+          choice(
+              panel,
+              "공개 범위",
+              new String[] {"모두에게 보이기", "나에게만 보이기"},
+              item.optString("visibility").equals("private") ? 1 : 0);
+      String[] colors = {"sage", "blue", "rose", "amber", "violet"};
+      Spinner color =
+          choice(
+              panel,
+              "색상",
+              new String[] {"초록", "파랑", "분홍", "주황", "보라"},
+              Math.max(0, Arrays.asList(colors).indexOf(item.optString("color"))));
+      EditText note = field(panel, "메모", item.optString("note"), true);
+      TextView error = text("", 13);
+      panel.addView(error);
+      AlertDialog dialog = dialog("일정", panel);
+      panel.addView(
+          action(
+              "저장",
+              () -> {
+                try {
+                  item.put("title", name.getText().toString())
+                      .put("day", start.getText().toString())
+                      .put("end_day", end.getText().toString())
+                      .put("clock", time.getText().toString().trim())
+                      .put("calendar_type", kind.getSelectedItemPosition() == 1 ? "lunar" : "solar")
+                      .put("annual", annual.isChecked())
+                      .put("leap", leap.isChecked())
+                      .put("category", type.getSelectedItemPosition() == 1 ? "work" : "family")
+                      .put(
+                          "visibility",
+                          visibility.getSelectedItemPosition() == 1 ? "private" : "shared")
+                      .put("color", colors[color.getSelectedItemPosition()])
+                      .put("note", note.getText().toString());
+                  calendar.validate(item);
+                  store.save(key, item, false);
+                  dialog.dismiss();
+                  store.sync();
+                } catch (Exception e) {
+                  error.setText(e.getMessage());
                 }
-            } catch(org.json.JSONException ignored) {}
-            CookieManager.getInstance().flush();CalendarWidget.refreshAll(this);
-        });
-        super.onPause(); browser.onPause(); CookieManager.getInstance().flush();CalendarWidget.refreshAll(this);
+              }));
+      if (source != null)
+        panel.addView(
+            action(
+                "삭제",
+                () ->
+                    new AlertDialog.Builder(this)
+                        .setMessage("이 일정 전체를 삭제할까요?")
+                        .setPositiveButton(
+                            "삭제",
+                            (d, n) -> {
+                              try {
+                                store.save(key, item, true);
+                                dialog.dismiss();
+                                store.sync();
+                              } catch (Exception e) {
+                                error.setText(e.getMessage());
+                              }
+                            })
+                        .setNegativeButton("취소", null)
+                        .show()));
+      dialog.show();
+    } catch (Exception e) {
+      notice(e.getMessage());
     }
-    @Override protected void onResume() {
-        super.onResume(); if(browser!=null) browser.onResume();
-        if(preferences!=null&&preferences.getBoolean("sync_enabled",false)) {
-            CalendarSync.schedule(this);
-            String cookie=CookieManager.getInstance().getCookie(server);
-            if(cookie!=null)CalendarSync.submit(this,cookie,"",null);
+  }
+
+  private void settings() {
+    JSONObject state = store.view(), user = state.optJSONObject("user");
+    LinearLayout panel = form();
+    AlertDialog dialog = dialog("설정 · Android v2.0.0", panel);
+    if (user != null) {
+      panel.addView(text(user.optString("name") + " 님", 18));
+      Spinner filter =
+          choice(
+              panel,
+              "일정 구분",
+              new String[] {"전체", "가족", "회사"},
+              category.equals("all") ? 0 : category.equals("family") ? 1 : 2);
+      Spinner owner = choice(panel, "일정 보기", new String[] {"전체 일정", "내 일정"}, mine ? 1 : 0);
+      int team =
+          user.optInt("shift_on") == 0
+              ? 3
+              : user.optString("shift_team").equals("B")
+                  ? 1
+                  : user.optString("shift_team").equals("none") ? 2 : 0;
+      Spinner shift =
+          choice(panel, "교대조", new String[] {"A조", "B조", "해당 없음 (주간)", "교대 표시 끄기"}, team);
+      panel.addView(
+          action(
+              "적용",
+              () -> {
+                try {
+                  category =
+                      new String[] {"all", "family", "work"}[filter.getSelectedItemPosition()];
+                  mine = owner.getSelectedItemPosition() == 1;
+                  store.preference(
+                      new String[] {"A", "B", "none", "none"}[shift.getSelectedItemPosition()],
+                      shift.getSelectedItemPosition() != 3);
+                  dialog.dismiss();
+                  store.sync();
+                } catch (Exception e) {
+                  notice(e.getMessage());
+                }
+              }));
+      panel.addView(
+          action(
+              "오늘",
+              () -> {
+                month = YearMonth.now();
+                dialog.dismiss();
+                render();
+              }));
+      panel.addView(
+          action(
+              "지금 동기화",
+              () -> {
+                store.sync();
+                dialog.dismiss();
+              }));
+      panel.addView(
+          action(
+              "같은 계정으로 재로그인",
+              () -> {
+                dialog.dismiss();
+                login();
+              }));
+      JSONArray pending = NativeStore.array(state, "pending");
+      for (int i = 0; i < pending.length(); i++) {
+        JSONObject p = pending.optJSONObject(i);
+        if (!p.optBoolean("conflict") && p.optString("error").isEmpty()) continue;
+        panel.addView(
+            text(p.optJSONObject("event").optString("title") + " · " + p.optString("error"), 13));
+        if (p.optBoolean("conflict")) {
+          JSONObject local = p.optJSONObject("event"), remote = p.optJSONObject("current");
+          panel.addView(
+              text(
+                  "내 일정 · "
+                      + local.optString("title")
+                      + " · "
+                      + local.optString("day")
+                      + " ~ "
+                      + local.optString("end_day")
+                      + " · "
+                      + local.optString("note"),
+                  13));
+          panel.addView(
+              text(
+                  remote == null
+                      ? "서버에서 삭제됨"
+                      : "서버 일정 · "
+                          + remote.optString("title")
+                          + " · "
+                          + remote.optString("day")
+                          + " ~ "
+                          + remote.optString("end_day")
+                          + " · "
+                          + remote.optString("note"),
+                  13));
         }
+        if (p.optBoolean("conflict"))
+          panel.addView(
+              action(
+                  "내 변경 적용",
+                  () -> {
+                    try {
+                      store.resolve(p.optString("key"), true);
+                      dialog.dismiss();
+                      store.sync();
+                    } catch (Exception e) {
+                      notice(e.getMessage());
+                    }
+                  }));
+        panel.addView(
+            action(
+                "서버 일정 사용 (내 변경 취소)",
+                () -> {
+                  try {
+                    store.resolve(p.optString("key"), false);
+                    dialog.dismiss();
+                    store.sync();
+                  } catch (Exception e) {
+                    notice(e.getMessage());
+                  }
+                }));
+      }
+      panel.addView(
+          action(
+              "삼성·휴대전화 캘린더 연동",
+              () -> {
+                dialog.dismiss();
+                showCalendarSync();
+              }));
+      panel.addView(
+          action(
+              "로그아웃",
+              () ->
+                  store.logout(
+                      message -> {
+                        if (!message.isEmpty()) notice(message);
+                        else dialog.dismiss();
+                      })));
+    } else
+      panel.addView(
+          action(
+              "로그인",
+              () -> {
+                dialog.dismiss();
+                login();
+              }));
+    CheckBox privateEvents = new CheckBox(this);
+    privateEvents.setText("위젯에 나의 개인 일정 표시");
+    privateEvents.setChecked(preferences.getBoolean("widget_private", false));
+    privateEvents.setOnCheckedChangeListener(
+        (b, on) -> {
+          preferences.edit().putBoolean("widget_private", on).apply();
+          cacheWidget();
+        });
+    panel.addView(privateEvents);
+    EditText address = field(panel, "서버 주소", server, false);
+    panel.addView(
+        action(
+            "서버 변경",
+            () -> {
+              try {
+                String next = ServerAddress.normalize(address.getText().toString());
+                if (next.equals(server)) {
+                  dialog.dismiss();
+                  return;
+                }
+                store.logout(
+                    message -> {
+                      if (!message.isEmpty()) {
+                        notice(message);
+                        return;
+                      }
+                      preferences.edit().putString("server", next).apply();
+                      dialog.dismiss();
+                      recreate();
+                    });
+              } catch (Exception e) {
+                notice(e.getMessage());
+              }
+            }));
+    dialog.show();
+  }
+
+  private void cacheWidget() {
+    store.updateWidget();
+  }
+
+  private int dp(int value) {
+    return Math.round(value * getResources().getDisplayMetrics().density);
+  }
+
+  @Override
+  protected void onResume() {
+    super.onResume();
+    timer.post(refresh);
+    if (store != null && preferences.getBoolean("sync_enabled", false)) {
+      String cookie = CookieManager.getInstance().getCookie(server);
+      if (cookie != null) CalendarSync.submit(this, cookie, "", null);
     }
-    @Override protected void onDestroy() {
-        if(browser!=null) { content.removeView(browser);browser.destroy(); }
-        super.onDestroy();
+  }
+
+  @Override
+  protected void onPause() {
+    timer.removeCallbacks(refresh);
+    super.onPause();
+  }
+
+  @Override
+  protected void onDestroy() {
+    if (store != null) store.changed = () -> {};
+    super.onDestroy();
+  }
+
+  private void showCalendarSync() {
+    if (server.isEmpty()) {
+      notice("먼저 서버에 연결하고 가족 계정으로 로그인해 주세요.");
+      return;
     }
-    private LinearLayout panel() {
-        LinearLayout p=new LinearLayout(this);p.setOrientation(LinearLayout.VERTICAL);
-        p.setPadding(dp(24),dp(24),dp(24),dp(24));p.setBackgroundColor(Color.rgb(246,245,239));return p;
+    String cookie = CookieManager.getInstance().getCookie(server);
+    if (cookie == null) {
+      notice("먼저 가족 계정으로 로그인해 주세요.");
+      return;
     }
-    private TextView text(String value,int size) {
-        TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(BRAND);
-        v.setPadding(0,dp(8),0,dp(8));return v;
+    if (preferences.getBoolean("sync_enabled", false)
+        || !preferences.getString("sync_connection", "").isEmpty()) {
+      new AlertDialog.Builder(this)
+          .setTitle("캘린더 연동")
+          .setView(
+              text(
+                  preferences.getString("sync_label", "")
+                      + "\n"
+                      + preferences.getString("sync_status", "")
+                      + "\n\n일반 일정은 양방향으로 반영합니다. 충돌은 기본적으로 보류합니다. 반복·음력 보기용 일정은 원본에서 수정하세요.",
+                  14))
+          .setItems(
+              new String[] {
+                "지금 동기화",
+                "동시에 수정된 일반 일정: 휴대전화 우선",
+                "동시에 수정된 일반 일정: 가족 달력 우선",
+                "연동 해제 (기존 일정 보관)",
+                "연동 연결·재개"
+              },
+              (d, which) -> {
+                if (which == 3) {
+                  CalendarSync.disconnect(this, cookie, this::syncNotice);
+                  return;
+                }
+                if (which == 4) {
+                  selectCalendar();
+                  return;
+                }
+                if (!preferences.getBoolean("sync_enabled", false)) {
+                  syncNotice("연동 연결·재개를 선택해 주세요.");
+                  return;
+                }
+                CalendarSync.submit(
+                    this,
+                    cookie,
+                    which == 1 ? "native" : which == 2 ? "server" : "",
+                    this::syncNotice);
+              })
+          .setNegativeButton("닫기", null)
+          .show();
+    } else selectCalendar();
+  }
+
+  private void selectCalendar() {
+    if (!CalendarSync.permitted(this)) {
+      requestPermissions(
+          new String[] {
+            android.Manifest.permission.READ_CALENDAR, android.Manifest.permission.WRITE_CALENDAR
+          },
+          41);
+      return;
     }
-    private Button button(String value) { Button b=new Button(this);b.setText(value);b.setAllCaps(false);return b; }
-    private int dp(int value) { return Math.round(value*getResources().getDisplayMetrics().density); }
+    try {
+      java.util.List<DeviceCalendars.Choice> calendars =
+          DeviceCalendars.choices(getContentResolver());
+      if (calendars.isEmpty()) {
+        syncNotice("읽기·쓰기가 가능한 캘린더가 없습니다. 삼성 캘린더의 계정 동기화를 확인해 주세요.");
+        return;
+      }
+      new AlertDialog.Builder(this)
+          .setTitle("연동할 캘린더 선택")
+          .setItems(
+              calendars.stream().map(Object::toString).toArray(String[]::new),
+              (dialog, which) -> {
+                DeviceCalendars.Choice choice = calendars.get(which);
+                final String[] visibility = {"private"};
+                LinearLayout details = form();
+                details.addView(
+                    text(
+                        "선택한 캘린더와 본인의 가족 달력 일정 사이에 추가·수정·삭제를 반영합니다. 다른 가족의 일정은 복사하지 않습니다.\n\n"
+                            + "지난달부터 앞으로 약 12개월을 연결합니다. 반복·음력 원본 규칙은 원래 앱에서 수정하세요. 1시간 갱신은 절전 정책에"
+                            + " 따라 지연될 수 있습니다.",
+                        14));
+                android.widget.CheckBox exportPrivate = new android.widget.CheckBox(this);
+                exportPrivate.setText("새 개인 일정도 휴대전화로 내보내기");
+                exportPrivate.setChecked(false);
+                details.addView(exportPrivate);
+                details.addView(
+                    text("내보낸 일정은 선택한 캘린더의 공유 권한을 따릅니다. 이미 연결한 일정은 공개 범위를 바꿔도 연결을 유지합니다.", 12));
+                new AlertDialog.Builder(this)
+                    .setTitle("양방향 연동 설정")
+                    .setView(details)
+                    .setSingleChoiceItems(
+                        new String[] {"가져오는 일정: 나에게만 보이기", "가져오는 일정: 모두에게 보이기"},
+                        0,
+                        (d, index) -> visibility[0] = index == 0 ? "private" : "shared")
+                    .setPositiveButton(
+                        "양방향 연동 시작",
+                        (d, w) ->
+                            CalendarSync.connect(
+                                this,
+                                choice,
+                                visibility[0],
+                                exportPrivate.isChecked(),
+                                CookieManager.getInstance().getCookie(server),
+                                this::syncNotice))
+                    .setNegativeButton("취소", null)
+                    .show();
+              })
+          .setNegativeButton("취소", null)
+          .show();
+    } catch (Exception e) {
+      syncNotice("캘린더 목록을 읽지 못했습니다. 권한을 확인해 주세요.");
+    }
+  }
+
+  private void syncNotice(String message) {
+    notice(message);
+    store.sync();
+  }
+
+  @Override
+  public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
+    super.onRequestPermissionsResult(request, permissions, results);
+    if (request == 41) {
+      if (CalendarSync.permitted(this)) selectCalendar();
+      else syncNotice("캘린더 권한을 허용해야 연동할 수 있습니다. 가족 달력은 계속 사용할 수 있습니다.");
+    }
+  }
 }
