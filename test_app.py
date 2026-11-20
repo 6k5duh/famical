@@ -194,12 +194,29 @@ class CalendarTest(unittest.TestCase):
   self.assertEqual(updated['category'],'work')
   self.assertFalse(any(e['id']==event['id'] for e in other.get(month).json))
 
+ def test_bulk_creation_is_atomic_and_keeps_private_work_defaults_from_client(self):
+  owner,auth=self.client(1)
+  other,_=self.client(2)
+  payload={'day':'2026-11-20','category':'work','visibility':'private',
+           'entries':[{'title':'간편 회의','clock':'14:00'},{'title':'간편 검토','clock':''}]}
+  endpoint='/api/events'
+  month=endpoint+'?month=2026-11'
+  named=lambda client: [e for e in client.get(month).json if e['title'].startswith('간편 ')]
+  invalid={**payload,'entries':[payload['entries'][0],{'title':'  '}]}
+  self.assertEqual(owner.post(endpoint,json=invalid,headers=auth).status_code,400)
+  self.assertEqual(named(owner),[])
+  self.assertEqual(owner.post(endpoint,json=payload,headers=auth).status_code,200)
+  events=named(owner)
+  self.assertEqual({(e['title'], e['clock']) for e in events},{('간편 회의','14:00'),('간편 검토','')})
+  self.assertTrue(all(e['category']=='work' and e['visibility']=='private' for e in events))
+  self.assertEqual(named(other),[])
+
  def test_version_identification(self):
   c=self.app.test_client();r=c.get('/')
-  self.assertIn('Famical v1.6.0',r.text);self.assertIn('?v=1.6.0',r.text)
+  self.assertIn('Famical v1.7.0',r.text);self.assertIn('?v=1.7.0',r.text)
   self.assertEqual(r.headers['Cache-Control'],'no-store')
-  self.assertEqual(r.headers['X-Famical-Version'],'1.6.0')
-  self.assertEqual(c.get('/api/version').json,{'version':'1.6.0'})
+  self.assertEqual(r.headers['X-Famical-Version'],'1.7.0')
+  self.assertEqual(c.get('/api/version').json,{'version':'1.7.0'})
 
  def test_account_shift_preferences_survive_login_and_other_devices(self):
   owner,h=self.client(2)

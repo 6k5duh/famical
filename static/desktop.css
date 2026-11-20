@@ -61,3 +61,61 @@
     min-height: calc(100dvh - 225px);
   }
 }
+
+.desktop #editor:has(#quickDetail:not([hidden])) {
+  width: min(310px, 90vw);
+  padding: 14px;
+}
+.desktop .quick-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.desktop #quickDate { border-left: 3px solid #68c6ee; padding-left: 8px; }
+.desktop #quickSave { background: #157875; font-size: 16px; }
+.desktop #quickEntry label { margin: 12px 0 4px; font-size: 12px; }
+.desktop #quickLines { resize: vertical; min-height: 6em; line-height: 1.55; }
+.desktop #quickDetail { margin-right: auto; }
+
+/* Fit the month to the WebView's client area, including four- and six-week months. */
+.desktop header, .desktop #calendar > .hint, .desktop .version { display: none; }
+.desktop body:has(#calendar:not([hidden])) { overflow: hidden; }
+.desktop main:has(#calendar:not([hidden])) { height: 100dvh; padding: 2px; }
+.desktop #calendar {
+  height: 100%; min-height: 0;
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr);
+  padding: 2px; border: 0;
+}
+.desktop .toolbar { padding: 2px 3px 4px; }
+.desktop .calendar-tools { display: flex; gap: 3px; }
+.desktop #grid {
+  display: grid; min-height: 0; min-width: 0; overflow: hidden;
+  grid-template-columns: minmax(0, 1fr); grid-auto-rows: minmax(0, 1fr);
+}
+.desktop .calendar-week { min-height: 0; overflow: hidden; }
+.desktop .day-detail { overflow: hidden; max-height: 100%; }
+.desktop .day-overflow {
+  z-index: 1; padding: 0 3px; margin: 0 2px 1px; min-height: 0;
+  overflow: hidden; font-size: 10px; line-height: 16px; text-align: left;
+}
+.desktop #agendaList { display: grid; gap: 4px; }
+.desktop #agendaList button { text-align: left; overflow-wrap: anywhere; }
+.desktop dialog { max-height: calc(100dvh - 12px); overflow-y: auto; }
+.desktop #desktopOptions .footer { margin: 14px 0; justify-content: flex-start; }
+.desktop #message:not(:empty) {
+  position: fixed; bottom: 5px; left: 50%; transform: translateX(-50%);
+  max-width: 90vw; z-index: 3; padding: 4px 8px; background: #142b3f;
+  border-radius: 4px; pointer-events: none;
+}
+.desktop .compact-weeks .cell { padding: 1px 2px; }
+.desktop .compact-weeks .date { font-size: 13px; }
+.desktop .compact-weeks .today .date { width: auto; height: auto; }
+.desktop .compact-weeks .date-heading { line-height: 1.1; }
+@media (max-width: 540px) {
+  .desktop .toolbar { flex-wrap: nowrap; gap: 2px; }
+  .desktop .navigation { gap: 2px; flex-wrap: nowrap; }
+  .desktop .navigation h2 { font-size: 15px; min-width: 0; }
+  .desktop .toolbar button { font-size: 12px; padding: 3px 5px; }
+}
+.desktop #message:empty { display: none; }

@@ -1,5 +1,5 @@
 FROM python:3.12-slim
-LABEL org.opencontainers.image.version="1.6.0"
+LABEL org.opencontainers.image.version="1.7.0"
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && useradd --uid 10001 --create-home calendar && mkdir /data && chown calendar:calendar /data

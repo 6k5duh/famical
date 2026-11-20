@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.6.0';
+import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.7.0';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
@@ -63,15 +63,26 @@ function render() {
     ($('eventView').value !== 'mine' || event.owner === me.id) &&
     (category === 'all' || event.category === category)
   );
+  const weekCount = Math.ceil((offset + last) / 7);
+  const rowHeight = desktopEntry ? Math.floor(grid.clientHeight / weekCount) : 0;
+  const condensed = desktopEntry && (rowHeight < 62 || grid.clientWidth < 500);
+  if (desktopEntry) grid.classList.toggle('compact-weeks', rowHeight < 62);
   for (let base=0; base<offset+last; base+=7) {
     const dates=Array.from({length:7},(_,col)=>{const day=base+col-offset+1; return day>=1&&day<=last ? iso(new Date(y,m,day)) : null;});
     const segments=layoutWeek(visible,dates);
-    const lanes=segments.length ? Math.max(...segments.map(s=>s.lane))+1 : 0;
+    const totalLanes=segments.length ? Math.max(...segments.map(s=>s.lane))+1 : 0;
+    const headerHeight = condensed ? 52 : 68;
+    const maxLanes = Math.max(0, Math.floor((rowHeight - headerHeight) / 24));
+    const overflow = desktopEntry && totalLanes > maxLanes;
+    const lanes = desktopEntry ? Math.min(totalLanes, Math.max(0, Math.floor((rowHeight - headerHeight - (overflow ? 18 : 0)) / 24))) : totalLanes;
     const week=document.createElement('div'); week.className='calendar-week';
     week.style.gridTemplateRows=`minmax(68px,auto) ${lanes ? `repeat(${lanes}, 30px) ` : ''}minmax(28px, 1fr)`;
+    if (desktopEntry) {
+      week.style.gridTemplateRows = 'minmax(0,1fr)' + (lanes ? ` repeat(${lanes},24px)` : '') + (overflow ? ' 18px' : '');
+    }
     for(let col=0; col<7; col++) {
       const stamp=dates[col], cell=document.createElement('div'); cell.className='cell';
-      cell.style.gridColumn=String(col+1); cell.style.gridRow=`1 / span ${lanes+2}`;
+      cell.style.gridColumn=String(col+1); cell.style.gridRow=desktopEntry ? '1 / -1' : `1 / span ${lanes+2}`;
       if(!stamp) { cell.classList.add('blank'); week.append(cell); continue; }
       const day=Number(stamp.slice(-2)), d=new Date(y,m,day), s=shift(d);
       if([0,6].includes(col)) cell.classList.add('weekend'); if(s) cell.classList.add(s);
@@ -107,8 +118,23 @@ function render() {
       cell.onclick=()=>edit({day:stamp});
       cell.onkeydown=e=>{if(e.target===cell&&(e.key==='Enter'||e.key===' ')){e.preventDefault();edit({day:stamp});}};
       week.append(cell);
+      if (overflow) {
+        const inDay = segments.filter(item => item.startColumn <= col && col <= item.endColumn);
+        const hiddenCount = inDay.filter(item => item.lane >= lanes).length;
+        if (hiddenCount) {
+          const more = document.createElement('button');
+          more.className = 'day-overflow';
+          more.style.gridColumn = String(col + 1);
+          more.style.gridRow = '-2 / -1';
+          more.textContent = '+' + hiddenCount + '개';
+          more.setAttribute('aria-label', stamp + ' 일정 모두 보기');
+          more.onclick = () => showAgenda(stamp, inDay.map(item => item.event), reason);
+          week.append(more);
+        }
+      }
     }
     for(const segment of segments) {
+      if (segment.lane >= lanes) continue;
       const ev=segment.event, b=document.createElement('button');
       b.className=`event-bar color-${ev.color}${segment.continuesBefore?' continues-before':''}${segment.continuesAfter?' continues-after':''}`;
       b.style.gridColumn=`${segment.startColumn+1} / ${segment.endColumn+2}`;
@@ -121,27 +147,63 @@ function render() {
     grid.append(week);
   }
 }
+function showAgenda(day, items, reason) {
+  const dialog = $('dayAgenda');
+  $('agendaDate').textContent = [day, reason].filter(Boolean).join(' · ');
+  const list = $('agendaList');
+  list.replaceChildren();
+  for (const item of items) {
+    const row = document.createElement('button');
+    row.textContent = [item.clock, item.title].filter(Boolean).join(' ');
+    row.onclick = () => { dialog.close(); edit(item); };
+    list.append(row);
+  }
+  $('agendaAdd').onclick = () => { dialog.close(); edit({day}); };
+  dialog.showModal();
+}
 function dateHelp() {
   const moon=$('calendarType').value==='lunar'; $('leapLabel').hidden=!moon;
   $('dateHelp').textContent=moon
     ? '음력 날짜는 숫자 8자리로 입력할 수 있습니다 (1900~2050년). 윤달 여부는 두 날짜에 함께 적용됩니다. 반복 시 날짜가 없는 해는 건너뜁니다.'
     : '양력 날짜는 숫자 8자리로 입력할 수 있습니다. 종료일까지 포함하며 최대 366일입니다. 매년 반복 시 2월 29일은 윤년에만 표시됩니다.';
 }
+const desktopEntry = document.documentElement?.classList.contains('desktop') === true;
 function edit(ev) {
+  const quick = desktopEntry && !ev.id;
   const f=$('eventForm'); f.reset(); $('editorError').textContent='';
   for(const field of ['id','title','day','clock','note']) f.elements[field].value=ev[field]||'';
   f.elements.day.value=ev.source_day||ev.day||'';
   f.elements.end_day.value=ev.source_end_day||ev.end_day||'';
   f.elements.calendar_type.value=ev.calendar_type||'solar'; f.elements.color.value=ev.color||'sage';
-  f.elements.category.value = ev.category || (!ev.id && $('categoryView').value === 'work' ? 'work' : 'family');
-  f.elements.visibility.value=ev.visibility||'shared';
+  f.elements.category.value = ev.category || (quick || $('categoryView').value === 'work' ? 'work' : 'family');
+  f.elements.visibility.value=ev.visibility || (quick ? 'private' : 'shared');
   f.elements.annual.checked=!!ev.annual; f.elements.leap.checked=!!ev.leap; dateHelp();
   const allowed=!ev.sync_readonly&&(!ev.id||me.admin||ev.owner===me.id);
   for(const field of ['title','day','end_day','clock','note','calendar_type','category','color','annual','leap']) f.elements[field].disabled=!allowed;
   for(const radio of f.querySelectorAll('[name=visibility]')) radio.disabled=!allowed;
   $('save').hidden=!allowed; $('remove').hidden=!ev.id||!allowed;
   $('author').textContent=ev.author?`작성: ${ev.author}${ev.sync_readonly?' · 반복 일정은 원본 휴대전화에서 수정':allowed?'':' · 조회만 가능'}`:'공개 범위 기본값은 모두에게 보이기입니다.';
+  if (desktopEntry) {
+    $('quickEntry').hidden = !quick;
+    $('quickDetail').hidden = !quick;
+    $('quickLines').disabled = !quick;
+    $('quickLines').required = quick;
+    $('quickLines').setCustomValidity('');
+    $('quickSave').hidden = !quick;
+    $('eventDetails').hidden = quick;
+    $('eventTitleLabel').hidden = quick;
+    $('editTitle').hidden = quick;
+    if (quick) {
+      const [year, month, day] = ev.day.split('-').map(Number);
+      $('quickDate').textContent = new Date(year, month - 1, day).toLocaleDateString('ko-KR',
+        { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+      f.elements.title.disabled = true;
+      $('author').textContent = '';
+      $('save').hidden = true;
+    }
+  }
   $('editor').showModal();
+  if (quick) $('quickLines').focus();
 }
 $('loginForm').onsubmit = async event => {
   event.preventDefault();
@@ -174,12 +236,71 @@ $('eventForm').oninput = ({target}) => {
   const caret = before + Number(before > 4) + Number(before > 6);
   target.setSelectionRange(caret, caret);
 };
+if (desktopEntry) {
+  const options = $('desktopOptions');
+  $('optionFields').append(document.querySelector('#calendar .settings'), document.querySelector('#calendar .footer'));
+  $('calendarOptions').onclick = () => options.showModal();
+  $('optionsClose').onclick = () => options.close();
+  $('agendaClose').onclick = () => $('dayAgenda').close();
+  $('logout').addEventListener('click', () => options.close());
+  let frame;
+  new ResizeObserver(() => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => { if (me) render(); });
+  }).observe($('grid'));
+  $('eventForm').elements.day.addEventListener('change', event => {
+    if (!$('quickEntry').hidden) $('quickDate').textContent = event.target.value;
+  });
+  $('quickDetail').onclick = () => {
+    $('eventDetails').hidden = false;
+    $('quickDetail').hidden = true;
+    $('quickSave').hidden = true;
+    $('save').hidden = false;
+    $('eventForm').elements.category.focus();
+  };
+  $('quickLines').oninput = () => $('quickLines').setCustomValidity('');
+}
+
 $('eventForm').onsubmit=async e=>{
   e.preventDefault(); const d=Object.fromEntries(new FormData(e.target));
   d.annual=e.target.elements.annual.checked; d.leap=d.calendar_type==='lunar'&&e.target.elements.leap.checked;
+  if ($('save').disabled) return;
+  if (desktopEntry && !d.id) {
+    const lines = $('quickLines');
+    const entries = [];
+    for (const raw of lines.value.split('\n').map(value => value.trim()).filter(Boolean)) {
+      const line = raw.replace(/^\d+[.)]\s+/, '');
+      const time = /^([01]?\d|2[0-3]):([0-5]\d)(?:\s+|$)/.exec(line);
+      const title = time ? line.slice(time[0].length).trim() : line;
+      if (!title || Array.from(title).length > 100) {
+        lines.setCustomValidity('각 줄에 1~100자의 일정 제목을 입력해 주세요.');
+        lines.reportValidity();
+        return;
+      }
+      entries.push({title, clock: d.clock || (time ? time[1].padStart(2,'0') + ':' + time[2] : '')});
+    }
+    if (!entries.length || entries.length > 50) {
+      lines.setCustomValidity('한 번에 1~50개의 일정을 입력해 주세요.');
+      lines.reportValidity();
+      return;
+    }
+    d.entries = entries;
+    $('quickSave').disabled = true;
+  }
   $('save').disabled=true;
-  try { await api('events'+(d.id?'/'+d.id:''),d.id?'PUT':'POST',d); $('editor').close(); await load(); }
-  catch(e){$('editorError').textContent=e.message;} finally{$('save').disabled=false;}
+  try {
+    await api('events'+(d.id?'/'+d.id:''),d.id?'PUT':'POST',d);
+    $('editor').close();
+    await load();
+    if (d.entries) {
+      const category = d.category === 'work' ? '회사' : '가족';
+      const filter = $('categoryView').value;
+      const hidden = filter !== 'all' && filter !== d.category;
+      say(category + ' 일정 ' + d.entries.length + '개를 저장했습니다.' +
+        (hidden ? ' 일정 구분을 ' + category + '로 바꾸면 보입니다.' : ''));
+    }
+  }
+  catch(e){$('editorError').textContent=e.message;} finally{$('save').disabled=false;if(desktopEntry)$('quickSave').disabled=false;}
 };
 $('remove').onclick=async()=>{if(!confirm('이 일정 전체를 삭제할까요?'))return;try{await api('events/'+$('eventForm').elements.id.value,'DELETE');$('editor').close();await load();}catch(e){$('editorError').textContent=e.message;}};
 $('close').onclick=()=>$('editor').close(); $('add').onclick=()=>edit({day:iso(new Date())});

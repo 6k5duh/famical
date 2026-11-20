@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from calendar_holidays import holidays_for_year
 
-APP_VERSION = '1.6.0'
+APP_VERSION = '1.7.0'
 
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -324,13 +324,23 @@ def save(eid=None):
         except (ValueError,TypeError): return jsonify(error='날짜가 유효하지 않습니다. 음력은 윤달 여부도 확인해 주세요.'),400
         if not 0 <= (end_date-start_date).days <= 365:
             return jsonify(error='종료일은 시작일 이후여야 하며 일정 기간은 최대 366일입니다.'),400
-        if not 1<=len(title)<=100 or len(note)>2000 or (clock and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d',clock)): abort(400)
+        entries = d.get('entries', [{'title': title, 'clock': clock}])
+        if 'entries' in d and eid is not None: abort(400)
+        if not isinstance(entries, list) or not 1 <= len(entries) <= 50 or len(note) > 2000: abort(400)
+        titles_and_times = []
+        for entry in entries:
+            if not isinstance(entry, dict): abort(400)
+            name, start_time = entry.get('title'), entry.get('clock', '')
+            if not isinstance(name, str) or not 1 <= len(name.strip()) <= 100: abort(400)
+            if not isinstance(start_time, str) or (start_time and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d', start_time)): abort(400)
+            titles_and_times.append((name.strip(), start_time))
         category = d.get('category', old['category'] if eid is not None else 'family')
         if category not in ('family', 'work'):
             abort(400)
-        values=(title,day,clock,note,kind,int(annual),int(leap),end_day,visibility,color,category)
-        if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=?,end_day=?,visibility=?,color=?,category=? WHERE id=?',values+(eid,))
-        else: c.execute('INSERT INTO events(id,title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,category,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(next_event_id(c),)+values+(session['uid'],))
+        for title, clock in titles_and_times:
+            values=(title,day,clock,note,kind,int(annual),int(leap),end_day,visibility,color,category)
+            if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=?,end_day=?,visibility=?,color=?,category=? WHERE id=?',values+(eid,))
+            else: c.execute('INSERT INTO events(id,title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,category,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(next_event_id(c),)+values+(session['uid'],))
     return jsonify(ok=True)
 
 from calendar_sync import register_sync
