@@ -1,0 +1,63 @@
+:root.desktop {
+  color-scheme: dark;
+  color: #e7f2fb;
+  background: #0b1824;
+  --night: #293350;
+  --day: #18404f;
+  --weekend: #392d39;
+}
+.desktop body { background: linear-gradient(125deg, #0c1d2d, #143958 72%, #10304a); min-height: 100vh; }
+.desktop header, .desktop main { max-width: none; }
+.desktop header { padding: 10px 18px 4px; }
+.desktop h1 { font-size: 17px; }
+.desktop main { padding: 6px 10px; }
+.desktop section { background: #10283a; border-color: #37546c; border-radius: 6px; }
+.desktop #calendar { padding: 10px; }
+.desktop .settings { gap: 10px; margin: 10px 0 2px; }
+.desktop .navigation h2 { font-size: 19px; min-width: 125px; }
+.desktop .navigation, .desktop .toolbar { gap: 6px; }
+.desktop button, .desktop input:not([type=checkbox]), .desktop textarea, .desktop select {
+  background: #1c4057; color: #edf5fa; border-color: #486379;
+}
+.desktop button { min-height: 30px; padding: 5px 10px; }
+.desktop #add, .desktop #save { background: #157875; color: white; }
+.desktop .event-bar { padding: 1px 4px; min-height: 22px; height: 22px; border-radius: 3px; background: #2a5269; color: white; border-left: 3px solid #89bcad; }
+.desktop .color-blue { border-color: #79aef8; }
+.desktop .color-rose { border-color: #f19eb4; }
+.desktop .color-amber { border-color: #eabb71; }
+.desktop .color-violet { border-color: #b89bf7; }
+.desktop .weekdays { background: #1e435e; padding: 4px; }
+.desktop #grid { border-color: #42617b; }
+.desktop .calendar-week { min-height: clamp(92px, calc((100dvh - 220px) / 6), 280px); }
+.desktop .cell { background: #16344a; border-color: #3c566b; }
+.desktop .cell.day { background: var(--day); }
+.desktop .cell.night { background: var(--night); }
+.desktop .cell.weekend, .desktop .cell.holiday { background: var(--weekend); }
+.desktop .cell.blank { background: #112838; }
+.desktop .cell.today { box-shadow: inset 0 0 0 2px #efc972; }
+.desktop .today .date { color: #172e3e; background: #efc972; }
+.desktop .date { font-size: 16px; }
+.desktop .weekend .date, .desktop .holiday .date, .desktop .holiday-reason,
+.desktop .weekdays span:is(:first-child,:last-child) { color: #ffb9bf; }
+.desktop .today.holiday .date { color: #762939; }
+.desktop .shift, .desktop .lunar, .desktop small, .desktop .hint, .desktop #sync, .desktop #author, .desktop .version { color: #c0d2df; }
+.desktop .footer { margin-top: 8px; }
+.desktop dialog { color: #e7f2fb; background: #162f42; }
+.desktop .visibility-options label { background: #264357; }
+.desktop .visibility-options label:has(input:checked) { background: #215353; outline-color: #7dc4b1; }
+.desktop #message, .desktop #editorError, .desktop #passwordError, .desktop #memberError { color: #ffbdb3; }
+@media (max-width: 680px) {
+  .desktop #calendar { padding: 6px; }
+  .desktop .settings { gap: 6px 12px; }
+  .desktop .settings select { padding: 4px; }
+  .desktop .footer { justify-content: flex-start; flex-wrap: wrap; }
+  .desktop .twocol { grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
+}
+@media (min-width: 681px) and (min-height: 540px) {
+  .desktop #grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(min-content, 1fr);
+    min-height: calc(100dvh - 225px);
+  }
+}

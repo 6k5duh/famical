@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.5.0';
+import {layoutWeek, lunarLabel} from './calendar-layout.mjs?v=1.6.0';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
@@ -58,7 +58,11 @@ function render() {
   $('legend').hidden=!prefs.on; $('team').disabled=savingPreferences||!prefs.on;
   const grid=$('grid'); grid.replaceChildren();
   const y=cursor.getFullYear(), m=cursor.getMonth(), offset=new Date(y,m,1).getDay(), last=new Date(y,m+1,0).getDate();
-  const visible=events.filter(e=>$('eventView').value!=='mine'||e.owner===me.id);
+  const category = $('categoryView').value || 'all';
+  const visible = events.filter(event =>
+    ($('eventView').value !== 'mine' || event.owner === me.id) &&
+    (category === 'all' || event.category === category)
+  );
   for (let base=0; base<offset+last; base+=7) {
     const dates=Array.from({length:7},(_,col)=>{const day=base+col-offset+1; return day>=1&&day<=last ? iso(new Date(y,m,day)) : null;});
     const segments=layoutWeek(visible,dates);
@@ -109,8 +113,9 @@ function render() {
       b.className=`event-bar color-${ev.color}${segment.continuesBefore?' continues-before':''}${segment.continuesAfter?' continues-after':''}`;
       b.style.gridColumn=`${segment.startColumn+1} / ${segment.endColumn+2}`;
       b.style.gridRow=String(segment.lane+2);
-      b.textContent=`${segment.continuesBefore?'‹ ':''}${ev.visibility==='private'?'🔒 ':''}${ev.clock||''} ${ev.title}${ev.annual?' ↻':''}${segment.continuesAfter?' ›':''}`.trim();
-      b.title=`${ev.title} · ${ev.day} ~ ${ev.end_day} · ${ev.author}${ev.visibility==='private'?' · 나에게만':''}`;
+      const categoryLabel = ev.category === 'work' ? '회사' : '가족';
+      b.textContent=`${segment.continuesBefore?'‹ ':''}${ev.visibility==='private'?'🔒 ':''}[${categoryLabel}] ${ev.clock||''} ${ev.title}${ev.annual?' ↻':''}${segment.continuesAfter?' ›':''}`.trim();
+      b.title=`${categoryLabel} · ${ev.title} · ${ev.day} ~ ${ev.end_day} · ${ev.author}${ev.visibility==='private'?' · 나에게만':''}`;
       b.setAttribute('aria-label',b.title); b.onclick=()=>edit(ev); week.append(b);
     }
     grid.append(week);
@@ -128,10 +133,11 @@ function edit(ev) {
   f.elements.day.value=ev.source_day||ev.day||'';
   f.elements.end_day.value=ev.source_end_day||ev.end_day||'';
   f.elements.calendar_type.value=ev.calendar_type||'solar'; f.elements.color.value=ev.color||'sage';
+  f.elements.category.value = ev.category || (!ev.id && $('categoryView').value === 'work' ? 'work' : 'family');
   f.elements.visibility.value=ev.visibility||'shared';
   f.elements.annual.checked=!!ev.annual; f.elements.leap.checked=!!ev.leap; dateHelp();
   const allowed=!ev.sync_readonly&&(!ev.id||me.admin||ev.owner===me.id);
-  for(const field of ['title','day','end_day','clock','note','calendar_type','color','annual','leap']) f.elements[field].disabled=!allowed;
+  for(const field of ['title','day','end_day','clock','note','calendar_type','category','color','annual','leap']) f.elements[field].disabled=!allowed;
   for(const radio of f.querySelectorAll('[name=visibility]')) radio.disabled=!allowed;
   $('save').hidden=!allowed; $('remove').hidden=!ev.id||!allowed;
   $('author').textContent=ev.author?`작성: ${ev.author}${ev.sync_readonly?' · 반복 일정은 원본 휴대전화에서 수정':allowed?'':' · 조회만 가능'}`:'공개 범위 기본값은 모두에게 보이기입니다.';
@@ -177,7 +183,7 @@ $('eventForm').onsubmit=async e=>{
 };
 $('remove').onclick=async()=>{if(!confirm('이 일정 전체를 삭제할까요?'))return;try{await api('events/'+$('eventForm').elements.id.value,'DELETE');$('editor').close();await load();}catch(e){$('editorError').textContent=e.message;}};
 $('close').onclick=()=>$('editor').close(); $('add').onclick=()=>edit({day:iso(new Date())});
-$('calendarType').onchange=dateHelp; $('eventView').onchange=render;
+$('calendarType').onchange=dateHelp; $('eventView').onchange=render; $('categoryView').onchange=render;
 $('prev').onclick=()=>{if(cursor.getFullYear()===1900&&cursor.getMonth()===0)return;cursor=new Date(cursor.getFullYear(),cursor.getMonth()-1,1);load();};
 $('next').onclick=()=>{if(cursor.getFullYear()===2099&&cursor.getMonth()===11)return;cursor=new Date(cursor.getFullYear(),cursor.getMonth()+1,1);load();};
 $('today').onclick=()=>{cursor=new Date();load();}; $('refresh').onclick=load;

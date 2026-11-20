@@ -179,12 +179,27 @@ class CalendarTest(unittest.TestCase):
    with self.m.db() as conn:
     conn.execute("UPDATE users SET password=? WHERE username='user2'",(old_hash,))
 
+ def test_category_preserved_with_legacy_clients_and_privacy(self):
+  owner,auth=self.client(1)
+  other,_=self.client(2)
+  legacy=self.event(title='분류 검증 일정',visibility='private')
+  self.assertEqual(owner.post('/api/events',json=legacy,headers=auth).status_code,200)
+  month='/api/events?month=2026-11'
+  event=next(e for e in owner.get(month).json if e['title']==legacy['title'])
+  self.assertEqual(event['category'],'family')
+  url=f"/api/events/{event['id']}"
+  for data,code in [({**legacy,'category':'work'},200),(legacy,200),({**legacy,'category':'bad'},400)]:
+   self.assertEqual(owner.put(url,json=data,headers=auth).status_code,code)
+  updated=next(e for e in owner.get(month).json if e['id']==event['id'])
+  self.assertEqual(updated['category'],'work')
+  self.assertFalse(any(e['id']==event['id'] for e in other.get(month).json))
+
  def test_version_identification(self):
   c=self.app.test_client();r=c.get('/')
-  self.assertIn('Famical v1.5.0',r.text);self.assertIn('?v=1.5.0',r.text)
+  self.assertIn('Famical v1.6.0',r.text);self.assertIn('?v=1.6.0',r.text)
   self.assertEqual(r.headers['Cache-Control'],'no-store')
-  self.assertEqual(r.headers['X-Famical-Version'],'1.5.0')
-  self.assertEqual(c.get('/api/version').json,{'version':'1.5.0'})
+  self.assertEqual(r.headers['X-Famical-Version'],'1.6.0')
+  self.assertEqual(c.get('/api/version').json,{'version':'1.6.0'})
 
  def test_account_shift_preferences_survive_login_and_other_devices(self):
   owner,h=self.client(2)

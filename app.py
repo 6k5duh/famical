@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from calendar_holidays import holidays_for_year
 
-APP_VERSION = '1.5.0'
+APP_VERSION = '1.6.0'
 
 DATA = Path(os.environ.get('DATA_DIR', '/data'))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS attempts(username TEXT PRIMARY KEY, count INTEGER, si
     user_columns={r[1] for r in c.execute('PRAGMA table_info(users)')}
     for name, definition in [('shift_team', "TEXT NOT NULL DEFAULT 'A'"), ('shift_on', 'INTEGER NOT NULL DEFAULT 1')]:
         if name not in user_columns: c.execute(f'ALTER TABLE users ADD COLUMN {name} {definition}')
+    if 'category' not in existing:
+        c.execute("ALTER TABLE events ADD COLUMN category TEXT NOT NULL DEFAULT 'family' CHECK(category IN ('family','work'))")
     if 'sync_readonly' not in existing:
         c.execute('ALTER TABLE events ADD COLUMN sync_readonly INTEGER NOT NULL DEFAULT 0')
     # Stable identities are essential for delayed device writes and tombstones.
@@ -136,7 +138,8 @@ def headers(r):
 @app.errorhandler(429)
 def error(e): return jsonify(error={400:'입력값을 확인해 주세요.',401:'로그인이 필요합니다.',403:'권한이 없거나 세션이 만료되었습니다. 새로고침해 주세요.',404:'항목을 찾을 수 없습니다.',409:'정보가 변경되었습니다.',413:'입력 내용이 너무 깁니다.',429:'로그인 시도가 많습니다. 15분 후 다시 시도해 주세요.'}.get(e.code,'오류')), e.code
 @app.get('/')
-def index(): return render_template('index.html', version=APP_VERSION)
+def index():
+    return render_template('index.html', version=APP_VERSION, desktop=request.args.get('view') == 'desktop')
 @app.get('/api/version')
 def version(): return jsonify(version=APP_VERSION)
 
@@ -322,9 +325,12 @@ def save(eid=None):
         if not 0 <= (end_date-start_date).days <= 365:
             return jsonify(error='종료일은 시작일 이후여야 하며 일정 기간은 최대 366일입니다.'),400
         if not 1<=len(title)<=100 or len(note)>2000 or (clock and not re.fullmatch(r'([01]\d|2[0-3]):[0-5]\d',clock)): abort(400)
-        values=(title,day,clock,note,kind,int(annual),int(leap),end_day,visibility,color)
-        if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=?,end_day=?,visibility=?,color=? WHERE id=?',values+(eid,))
-        else: c.execute('INSERT INTO events(id,title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',(next_event_id(c),)+values+(session['uid'],))
+        category = d.get('category', old['category'] if eid is not None else 'family')
+        if category not in ('family', 'work'):
+            abort(400)
+        values=(title,day,clock,note,kind,int(annual),int(leap),end_day,visibility,color,category)
+        if eid: c.execute('UPDATE events SET title=?,day=?,clock=?,note=?,calendar_type=?,annual=?,leap=?,end_day=?,visibility=?,color=?,category=? WHERE id=?',values+(eid,))
+        else: c.execute('INSERT INTO events(id,title,day,clock,note,calendar_type,annual,leap,end_day,visibility,color,category,owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',(next_event_id(c),)+values+(session['uid'],))
     return jsonify(ok=True)
 
 from calendar_sync import register_sync

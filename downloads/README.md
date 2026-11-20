@@ -1,3 +1,7 @@
+# Windows
+
+[Windows 10/11 x64 실행 파일 ZIP](famical-windows-1.0.0-x64.zip) · [설치 안내](../windows/README.md)
+
 # Android APK download
 
 [**최신 APK v1.2.1 다운로드**](https://github.com/6k5duh/famical/raw/refs/heads/main/downloads/famical-android-1.2.1-debug.apk)
