@@ -1,5 +1,8 @@
 using System;
+using System.ComponentModel;
 using System.IO;
+using System.Threading;
+using Forms = System.Windows.Forms;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,7 +18,30 @@ namespace Famical.Windows
     internal static class Program
     {
         [STAThread]
-        private static void Main() => new Application().Run(new CalendarWindow());
+        private static void Main(string[] args)
+        {
+            bool startHidden = Array.Exists(args, arg => string.Equals(arg, "--tray", StringComparison.OrdinalIgnoreCase));
+            using (var openRequest = new EventWaitHandle(false, EventResetMode.AutoReset,
+                @"Local\Famical.Windows.OpenCalendar", out bool firstInstance)) {
+                if (!firstInstance) {
+                    if (!startHidden) openRequest.Set();
+                    return;
+                }
+
+                var app = new Application { ShutdownMode = ShutdownMode.OnMainWindowClose };
+                var calendar = new CalendarWindow();
+                app.MainWindow = calendar;
+                app.SessionEnding += (_, __) => calendar.AllowExit();
+                var listener = ThreadPool.RegisterWaitForSingleObject(openRequest,
+                    (_, __) => app.Dispatcher.BeginInvoke(new Action(calendar.OpenCalendar)), null, Timeout.Infinite, false);
+                try {
+                    if (!startHidden) calendar.Show();
+                    app.Run();
+                } finally {
+                    listener.Unregister(null);
+                }
+            }
+        }
     }
 
     internal sealed class CalendarWindow : Window
@@ -28,11 +54,16 @@ namespace Famical.Windows
             Foreground = Brushes.White, Margin = new Thickness(14), TextWrapping = TextWrapping.Wrap
         };
         private readonly Uri server;
-        private bool starting, closed;
+        private readonly Forms.NotifyIcon tray;
+        private readonly Forms.ContextMenuStrip trayMenu;
+        private readonly System.Drawing.Icon trayIcon;
+        private bool starting, closed, exiting;
+        private WindowState lastVisibleState = WindowState.Normal;
 
         public CalendarWindow()
         {
             Title = "Famical · 가족 달력";
+            ShowInTaskbar = false;
             Background = new SolidColorBrush(Color.FromRgb(15, 35, 51));
             Foreground = Brushes.White;
             WindowStyle = WindowStyle.None;
@@ -67,9 +98,9 @@ namespace Famical.Windows
             transparency.ValueChanged += (_, e) => Opacity = 1 - e.NewValue / 100;
             controls.Children.Add(transparency);
             AddButton(controls, "↻", "다시 연결", Navigate);
-            AddButton(controls, "−", "최소화", () => WindowState = WindowState.Minimized);
+            AddButton(controls, "−", "트레이로 숨기기", Hide);
             AddButton(controls, "□", "최대화 또는 복원", ToggleMaximize);
-            AddButton(controls, "×", "닫기", Close);
+            AddButton(controls, "×", "트레이로 숨기기", Hide);
             var title = new Border { Background = Brushes.Transparent, Child = new TextBlock {
                 Text = "FAMICAL", FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center
             }};
@@ -83,8 +114,52 @@ namespace Famical.Windows
             area.Children.Add(status);
             panel.Children.Add(area);
             Content = panel;
-            Loaded += (_, __) => Navigate();
-            Closed += (_, __) => { closed = true; SaveSettings(); browser.Dispose(); };
+            trayMenu = new Forms.ContextMenuStrip();
+            trayMenu.Items.Add("달력 열기", null, (_, __) => OpenCalendar());
+            trayMenu.Items.Add("종료", null, (_, __) => { AllowExit(); Application.Current.Shutdown(); });
+            trayIcon = System.Drawing.Icon.ExtractAssociatedIcon(typeof(Program).Assembly.Location);
+            tray = new Forms.NotifyIcon {
+                Icon = trayIcon, Text = "Famical · 가족 달력", ContextMenuStrip = trayMenu, Visible = true
+            };
+            tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) OpenCalendar(); };
+            Loaded += OnFirstLoad;
+            StateChanged += (_, __) => {
+                if (WindowState == WindowState.Minimized) Hide();
+                else lastVisibleState = WindowState;
+            };
+            Closed += (_, __) => {
+                closed = true;
+                tray.Visible = false;
+                tray.Dispose();
+                trayMenu.Dispose();
+                trayIcon.Dispose();
+                SaveSettings();
+                browser.Dispose();
+            };
+        }
+
+        private void OnFirstLoad(object sender, RoutedEventArgs e)
+        {
+            Loaded -= OnFirstLoad;
+            Navigate();
+        }
+
+        internal void AllowExit() => exiting = true;
+
+        internal void OpenCalendar()
+        {
+            if (closed || exiting) return;
+            if (WindowState == WindowState.Minimized) WindowState = lastVisibleState;
+            Show();
+            Activate();
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            base.OnClosing(e);
+            if (exiting) return;
+            e.Cancel = true;
+            Dispatcher.BeginInvoke(new Action(() => { if (!closed && !exiting) Hide(); }));
         }
 
         private static void AddButton(Panel panel, string text, string name, Action action)
@@ -158,8 +233,9 @@ namespace Famical.Windows
         private void SaveSettings()
         {
             try {
-                Directory.CreateDirectory(dataDir);
                 var bounds = RestoreBounds;
+                if (bounds.IsEmpty) return;
+                Directory.CreateDirectory(dataDir);
                 new XElement("window", new XAttribute("server", server.AbsoluteUri),
                     new XAttribute("width", bounds.Width), new XAttribute("height", bounds.Height),
                     new XAttribute("opacity", Opacity)).Save(Path.Combine(dataDir, "window.xml"));

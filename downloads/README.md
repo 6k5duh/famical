@@ -1,6 +1,6 @@
 # Windows
 
-[Windows 10/11 x64 실행 파일 ZIP](famical-windows-1.0.0-x64.zip) · [설치 안내](../windows/README.md)
+[Windows 10/11 x64 실행 파일 ZIP](famical-windows-1.1.0-x64.zip) · [설치 안내](../windows/README.md)
 
 # Android APK download
 
