@@ -1,10 +1,10 @@
 # Famical 다운로드
 
-[Android v2.1.1 APK 다운로드](famical-android-2.1.1.apk) · [Android 설치 안내](../android/README.md)
+[Android v2.1.2 APK 다운로드](famical-android-2.1.2.apk) · [Android 설치 안내](../android/README.md)
 
 [Windows v2.0.1 x64 ZIP 다운로드](famical-windows-2.0.1-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
-Android v2.1.1은 좌우 월 이동 슬라이드와 달력 접기·펼치기의 부드러운 높이 전환을 추가했습니다. 접힌 달력 아래에는 선택한 날짜의 일정 3줄을 표시하며 추가 일정은 목록을 스크롤해 확인합니다. 달력을 아래로 밀면 다시 펼칩니다.
+Android v2.1.2은 좌우 월 이동 슬라이드와 달력 접기·펼치기의 부드러운 높이 전환을 제공합니다. 접힌 달력 아래에는 선택한 날짜의 일정 3줄을 표시하며 추가 일정은 목록을 스크롤해 확인합니다. 달력을 아래로 밀면 다시 펼칩니다.
 
 일정 막대 색상 16가지를 제공하며, 색상 선택창에서 실제 색상 견본을 확인합니다. 달력 배경에 사용하는 색상값은 선택지에서 제외했습니다.
 
@@ -23,3 +23,5 @@ APK는 R8·리소스 축소를 적용한 릴리스 빌드이며 기존 APK와 �
 iPhone은 기존 웹앱과 Scriptable 위젯을 사용할 수 있습니다. [Scriptable 위젯 파일](FamicalCalendar.scriptable) · [iPhone 안내](../ios/scriptable/README.md)
 
 이전 Android APK는 [v1.2.1](famical-android-1.2.1-debug.apk), 이전 Windows 웹 화면 앱은 [v1.1.1](famical-windows-1.1.1-x64.zip)에서 받을 수 있습니다.
+
+Android v2.1.2에서는 홈 화면 위젯의 날짜 칸을 누르면 해당 월·날짜를 선택하고 하단에 그날의 일정 목록을 엽니다. 이미 앱이 실행 중이어도 적용됩니다. APK 업데이트 후 위젯의 갱신 버튼을 한 번 누르세요. NAS가 v2.0.1이면 서버 재설치는 필요 없습니다.

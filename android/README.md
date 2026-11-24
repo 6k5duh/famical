@@ -1,6 +1,6 @@
-# Famical for Android v2.1.1
+# Famical for Android v2.1.2
 
-[최신 APK 다운로드](../downloads/famical-android-2.1.1.apk)
+[최신 APK 다운로드](../downloads/famical-android-2.1.2.apk)
 
 1. NAS 소스를 v2.0.1으로 업데이트하고 Container Manager에서 다시 빌드합니다. 기존 계정·일정 데이터 볼륨과 설정 파일은 유지합니다.
 2. APK를 내려받아 기존 앱 위에 업데이트 설치합니다. Android 8.0 이상이 필요합니다.
@@ -44,3 +44,5 @@ v2.0.1은 기본 Android UI와 Canvas로 달력을 그리며 SQLite에 일정·�
 JDK 17 이상과 Android SDK 35를 준비하고 `cd android`, `./gradlew assembleRelease`를 실행합니다. R8 코드 축소와 리소스 축소를 적용합니다. 현재 배포 APK는 기존 APK와 업데이트 호환성을 위해 같은 개발용 인증서를 사용하며, 릴리스 빌드로 디버깅을 비활성화합니다. 재현 빌드에는 같은 서명 키가 필요합니다.
 
 음력·공휴일 데이터는 `native/assets/calendar.dat`에 압축해 포함합니다. Python 의존성 설치 후 `python native/build_calendar.py`로 재생성합니다.
+
+Android v2.1.2에서는 홈 화면 위젯의 날짜 칸을 누르면 해당 월·날짜를 선택하고 하단에 그날의 일정 목록을 엽니다. 이미 앱이 실행 중이어도 적용됩니다. APK 업데이트 후 위젯의 갱신 버튼을 한 번 누르세요. NAS가 v2.0.1이면 서버 재설치는 필요 없습니다.

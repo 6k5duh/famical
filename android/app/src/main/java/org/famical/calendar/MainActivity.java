@@ -205,9 +205,40 @@ public class MainActivity extends Activity {
     store = NativeStore.get(this);
     store.changed = this::render;
     buildScreen();
+    if (state == null) selectWidgetDate(getIntent());
     render();
     CalendarSync.schedule(this);
     NativeSyncJob.schedule(this, false);
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    if (selectWidgetDate(intent)) render();
+  }
+
+  private boolean selectWidgetDate(Intent intent) {
+    android.net.Uri uri = intent == null ? null : intent.getData();
+    if (uri == null
+        || !Intent.ACTION_VIEW.equals(intent.getAction())
+        || !"famical".equals(uri.getScheme())
+        || !"calendar".equals(uri.getHost())
+        || uri.getPathSegments().size() != 1) return false;
+    LocalDate date;
+    try {
+      date = LocalDate.parse(uri.getLastPathSegment());
+    } catch (java.time.format.DateTimeParseException e) {
+      return false;
+    }
+    if (date.getYear() < 1900 || date.getYear() > 2099) return false;
+    if (collapseAnimator != null) collapseAnimator.end();
+    grid.finishMonthAnimation();
+    selectedDate = date;
+    month = YearMonth.from(date);
+    collapsed = true;
+    settleAgenda();
+    return true;
   }
 
   private void buildScreen() {
@@ -578,7 +609,7 @@ public class MainActivity extends Activity {
   private void settings() {
     JSONObject state = store.view(), user = state.optJSONObject("user");
     LinearLayout panel = form();
-    AlertDialog dialog = dialog("설정 · Android v2.1.1", panel);
+    AlertDialog dialog = dialog("설정 · Android v2.1.2", panel);
     if (user != null) {
       panel.addView(text(user.optString("name") + " 님", 18));
       Spinner filter =

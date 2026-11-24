@@ -38,6 +38,11 @@ final class WidgetRenderer {
             views.setTextViewText(DAYS[i],active?String.valueOf(day):"");
             if(active) {
                 LocalDate date=today.withDayOfMonth(day);boolean selected=day==today.getDayOfMonth();
+                Intent openDay=new Intent(context,MainActivity.class)
+                    .setAction(Intent.ACTION_VIEW)
+                    .setData(android.net.Uri.parse("famical://calendar/"+date))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                views.setOnClickPendingIntent(CELLS[i],PendingIntent.getActivity(context,0,openDay,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
                 views.setInt(CELLS[i],"setBackgroundResource",background(date,team,enabled,selected));
                 java.util.List<Integer> colors=monthColors.get(day);
                 views.setViewVisibility(MARKERS[i],colors.isEmpty()?View.INVISIBLE:View.VISIBLE);
