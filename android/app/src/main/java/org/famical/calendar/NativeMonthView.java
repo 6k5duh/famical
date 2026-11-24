@@ -38,12 +38,39 @@ final class NativeMonthView extends View {
   private YearMonth month = YearMonth.now();
   private JSONObject user = new JSONObject();
   private int count = 35;
+  private float downX, downY;
+  private boolean tracking, moved;
+  private LocalDate selected;
+  private boolean compact;
+  private java.util.function.IntConsumer moveMonth = delta -> {};
+  private java.util.function.Consumer<Boolean> collapse = value -> {};
+
+  void gestures(
+      java.util.function.IntConsumer moveMonth, java.util.function.Consumer<Boolean> collapse) {
+    this.moveMonth = moveMonth;
+    this.collapse = collapse;
+  }
+
+  void selection(LocalDate date, boolean compact) {
+    selected = date;
+    this.compact = compact;
+    invalidate();
+  }
+
+  List<Entry> entries(LocalDate date) {
+    if (first == null) return Collections.emptyList();
+    long index = java.time.temporal.ChronoUnit.DAYS.between(first, date);
+    return index >= 0 && index < items.size()
+        ? new ArrayList<>(items.get((int) index))
+        : Collections.emptyList();
+  }
+
   private java.util.function.BiConsumer<LocalDate, List<Entry>> select = (day, entries) -> {};
 
   NativeMonthView(Context context, NativeCalendar calendar) {
     super(context);
     this.calendar = calendar;
-    setContentDescription("월 달력. 날짜를 누르면 일정과 추가 버튼이 표시됩니다.");
+    setContentDescription("월 달력. 좌우로 밀어 월 이동, 위로 밀어 일정 목록, 아래로 밀어 달력 펼치기.");
   }
 
   void display(
@@ -130,7 +157,12 @@ final class NativeMonthView extends View {
           red
               ? 0xfff3dfe1
               : shift.equals("야간") ? 0xfff7efbb : shift.equals("주간") ? 0xffdce9d8 : Color.WHITE);
+      canvas.clipRect(left, top, left + width, top + height);
       canvas.drawRect(left, top, left + width, top + height, paint);
+      if (compact && day.equals(selected)) {
+        paint.setColor(0x30285449);
+        canvas.drawRect(left, top, left + width, top + height, paint);
+      }
       paint.setStyle(Paint.Style.STROKE);
       paint.setStrokeWidth(dp(day.equals(LocalDate.now()) ? 2 : 0.5f));
       paint.setColor(day.equals(LocalDate.now()) ? 0xffd83d3d : 0xffc4ceca);
@@ -197,17 +229,52 @@ final class NativeMonthView extends View {
   }
 
   @Override
-  public boolean onTouchEvent(android.view.MotionEvent event) {
-    if (event.getAction() == MotionEvent.ACTION_UP && first != null) {
-      float header = dp(22);
-      if (event.getY() < header) return true;
-      int column = Math.min(6, (int) (event.getX() / (getWidth() / 7f))),
-          row = (int) ((event.getY() - header) / ((getHeight() - header) / (count / 7f)));
-      int index = row * 7 + column;
-      if (index >= 0 && index < count) select.accept(first.plusDays(index), items.get(index));
-      performClick();
+  public boolean onTouchEvent(MotionEvent event) {
+    switch (event.getActionMasked()) {
+      case MotionEvent.ACTION_DOWN:
+        downX = event.getX();
+        downY = event.getY();
+        tracking = true;
+        moved = false;
+        return true;
+      case MotionEvent.ACTION_POINTER_DOWN:
+      case MotionEvent.ACTION_CANCEL:
+        tracking = false;
+        return true;
+      case MotionEvent.ACTION_MOVE:
+        if (Math.hypot(event.getX() - downX, event.getY() - downY)
+            > ViewConfiguration.get(getContext()).getScaledTouchSlop()) moved = true;
+        return true;
+      case MotionEvent.ACTION_UP:
+        if (!tracking || first == null) return true;
+        tracking = false;
+        float dx = event.getX() - downX, dy = event.getY() - downY;
+        float threshold =
+            Math.max(dp(48), ViewConfiguration.get(getContext()).getScaledTouchSlop() * 3);
+        if (Math.abs(dx) >= threshold && Math.abs(dx) > Math.abs(dy) * 1.25f) {
+          moveMonth.accept(dx < 0 ? 1 : -1);
+          return true;
+        }
+        if (Math.abs(dy) >= threshold && Math.abs(dy) > Math.abs(dx) * 1.25f) {
+          collapse.accept(dy < 0);
+          return true;
+        }
+        if (moved || Math.hypot(dx, dy) > ViewConfiguration.get(getContext()).getScaledTouchSlop())
+          return true;
+        float header = dp(22);
+        if (event.getX() < 0
+            || event.getX() >= getWidth()
+            || event.getY() < header
+            || event.getY() >= getHeight()) return true;
+        int column = (int) (event.getX() / (getWidth() / 7f));
+        int row = (int) ((event.getY() - header) / ((getHeight() - header) / (count / 7f)));
+        int index = row * 7 + column;
+        if (index >= 0 && index < count) select.accept(first.plusDays(index), items.get(index));
+        performClick();
+        return true;
+      default:
+        return true;
     }
-    return true;
   }
 
   @Override

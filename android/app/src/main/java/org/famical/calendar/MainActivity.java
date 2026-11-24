@@ -21,6 +21,113 @@ public class MainActivity extends Activity {
   private YearMonth month = YearMonth.now();
   private String category = "all";
   private boolean mine;
+  private boolean collapsed;
+  private LocalDate selectedDate = LocalDate.now();
+  private LinearLayout agendaPanel;
+  private TextView agendaTitle;
+  private ListView agendaList;
+  private List<NativeMonthView.Entry> selectedEntries = new ArrayList<>();
+
+  private void moveMonth(int delta) {
+    YearMonth next = month.plusMonths(delta);
+    if (next.getYear() < 1900 || next.getYear() > 2099) return;
+    month = next;
+    selectedDate = month.atDay(Math.min(selectedDate.getDayOfMonth(), month.lengthOfMonth()));
+    render();
+  }
+
+  private void setCollapsed(boolean value) {
+    collapsed = value;
+    render();
+  }
+
+  private void selectDate(LocalDate date, List<NativeMonthView.Entry> entries) {
+    selectedDate = date;
+    if (collapsed) renderAgenda();
+    else agenda(date, entries);
+    grid.selection(selectedDate, collapsed);
+  }
+
+  private void renderAgenda() {
+    agendaPanel.setVisibility(
+        collapsed && store.view().optJSONObject("user") != null ? View.VISIBLE : View.GONE);
+    if (!collapsed) return;
+    selectedEntries = grid.entries(selectedDate);
+    agendaTitle.setText(
+        selectedDate.getMonthValue()
+            + "월 "
+            + selectedDate.getDayOfMonth()
+            + "일 · "
+            + selectedEntries.size()
+            + "개");
+    agendaList.setAdapter(
+        new BaseAdapter() {
+          public int getCount() {
+            return Math.max(1, selectedEntries.size());
+          }
+
+          public Object getItem(int position) {
+            return selectedEntries.isEmpty() ? null : selectedEntries.get(position);
+          }
+
+          public long getItemId(int position) {
+            return position;
+          }
+
+          public boolean isEnabled(int position) {
+            return !selectedEntries.isEmpty();
+          }
+
+          public View getView(int position, View reusable, ViewGroup parent) {
+            LinearLayout row = new LinearLayout(MainActivity.this);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(12), 0, dp(12), 0);
+            row.setLayoutParams(new AbsListView.LayoutParams(-1, dp(56)));
+            if (selectedEntries.isEmpty()) {
+              row.addView(text("등록된 일정이 없습니다.", 14));
+              return row;
+            }
+            NativeMonthView.Entry entry = selectedEntries.get(position);
+            View mark = new View(MainActivity.this);
+            mark.setBackgroundColor(WidgetEvents.color(entry.event.optString("color")));
+            LinearLayout.LayoutParams marker = new LinearLayout.LayoutParams(dp(4), dp(32));
+            marker.rightMargin = dp(10);
+            row.addView(mark, marker);
+            TextView time =
+                text(
+                    entry.event.optString("clock").isEmpty()
+                        ? "종일"
+                        : entry.event.optString("clock"),
+                    13);
+            row.addView(time, new LinearLayout.LayoutParams(dp(48), -2));
+            TextView label = text(entry.event.optString("title"), 15);
+            label.setMaxLines(2);
+            label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+            String progress = entry.progress(selectedDate);
+            if (!progress.isEmpty()) row.addView(text(progress, 13));
+            return row;
+          }
+        });
+    agendaList.setOnItemClickListener(
+        (parent, view, position, id) -> {
+          if (position < selectedEntries.size()) {
+            NativeMonthView.Entry entry = selectedEntries.get(position);
+            edit(entry.key, entry.event, selectedDate);
+          }
+        });
+  }
+
+  @Override
+  protected void onSaveInstanceState(Bundle state) {
+    state.putString("calendarMonth", month.toString());
+    state.putString("selectedDate", selectedDate.toString());
+    state.putBoolean("collapsed", collapsed);
+    state.putString("category", category);
+    state.putBoolean("mine", mine);
+    super.onSaveInstanceState(state);
+  }
+
   private final Handler timer = new Handler(Looper.getMainLooper());
   private final Runnable refresh =
       new Runnable() {
@@ -33,6 +140,13 @@ public class MainActivity extends Activity {
   @Override
   public void onCreate(Bundle state) {
     super.onCreate(state);
+    if (state != null) {
+      month = YearMonth.parse(state.getString("calendarMonth", month.toString()));
+      selectedDate = LocalDate.parse(state.getString("selectedDate", selectedDate.toString()));
+      collapsed = state.getBoolean("collapsed");
+      category = state.getString("category", "all");
+      mine = state.getBoolean("mine");
+    }
     preferences = getSharedPreferences("famical", MODE_PRIVATE);
     server = preferences.getString("server", "");
     if (server.isEmpty()) {
@@ -72,8 +186,7 @@ public class MainActivity extends Activity {
         action(
             "‹",
             () -> {
-              month = month.minusMonths(1);
-              render();
+              moveMonth(-1);
             }));
     title = text("", 17);
     bar.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
@@ -81,14 +194,32 @@ public class MainActivity extends Activity {
         action(
             "›",
             () -> {
-              month = month.plusMonths(1);
-              render();
+              moveMonth(1);
             }));
     bar.addView(action("+", () -> edit(null, null, LocalDate.now())));
     bar.addView(action("⚙", this::settings));
     root.addView(bar);
     grid = new NativeMonthView(this, calendar);
+    grid.gestures(this::moveMonth, this::setCollapsed);
     root.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1));
+    agendaPanel = new LinearLayout(this);
+    agendaPanel.setOrientation(LinearLayout.VERTICAL);
+    agendaPanel.setBackgroundColor(android.graphics.Color.WHITE);
+    LinearLayout agendaHeader = new LinearLayout(this);
+    agendaHeader.setGravity(Gravity.CENTER_VERTICAL);
+    agendaTitle = text("", 15);
+    agendaTitle.setPadding(dp(12), 0, 0, 0);
+    agendaHeader.addView(agendaTitle, new LinearLayout.LayoutParams(0, -2, 1));
+    agendaHeader.addView(action("+", () -> edit(null, null, selectedDate)));
+    agendaHeader.addView(action("펼치기", () -> setCollapsed(false)));
+    agendaPanel.addView(agendaHeader, new LinearLayout.LayoutParams(-1, dp(44)));
+    agendaList = new ListView(this);
+    agendaList.setDividerHeight(0);
+    agendaPanel.addView(agendaList, new LinearLayout.LayoutParams(-1, dp(168)));
+    root.addView(agendaPanel, new LinearLayout.LayoutParams(-1, -2));
+    agendaPanel.setVisibility(View.GONE);
+    title.setContentDescription("월 제목. 누르면 일정 목록을 펼치거나 접습니다.");
+    title.setOnClickListener(v -> setCollapsed(!collapsed));
     status = text("", 11);
     status.setPadding(dp(8), dp(4), dp(8), dp(4));
     status.setOnClickListener(v -> store.sync());
@@ -105,13 +236,16 @@ public class MainActivity extends Activity {
     status.setText(store.status + (count > 0 ? " · 미전송 " + count + "건" : ""));
     if (user == null) {
       grid.setVisibility(View.INVISIBLE);
+      agendaPanel.setVisibility(View.GONE);
       status.setText("가족 계정으로 처음 로그인하면 오프라인에서도 사용할 수 있습니다. 여기를 누르세요.");
       status.setOnClickListener(v -> login());
       return;
     }
     grid.setVisibility(View.VISIBLE);
     status.setOnClickListener(v -> store.sync());
-    grid.display(month, user, store.items(), category, mine, this::agenda);
+    grid.display(month, user, store.items(), category, mine, this::selectDate);
+    grid.selection(selectedDate, collapsed);
+    renderAgenda();
     cacheWidget();
   }
 
@@ -396,7 +530,7 @@ public class MainActivity extends Activity {
   private void settings() {
     JSONObject state = store.view(), user = state.optJSONObject("user");
     LinearLayout panel = form();
-    AlertDialog dialog = dialog("설정 · Android v2.0.1", panel);
+    AlertDialog dialog = dialog("설정 · Android v2.1.0", panel);
     if (user != null) {
       panel.addView(text(user.optString("name") + " 님", 18));
       Spinner filter =
@@ -436,6 +570,7 @@ public class MainActivity extends Activity {
               "오늘",
               () -> {
                 month = YearMonth.now();
+                selectedDate = LocalDate.now();
                 dialog.dismiss();
                 render();
               }));

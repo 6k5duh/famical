@@ -1,6 +1,6 @@
 {
-  "version_name": "2.0.1",
-  "version_code": 8,
+  "version_name": "2.1.0",
+  "version_code": 9,
   "application_id": "org.famical.calendar",
   "min_sdk": 26,
   "target_sdk": 35,
@@ -13,10 +13,10 @@
   "app_foreground_sync_seconds": 60,
   "widget_refresh_request_minutes": 60,
   "signing": "Same development certificate as v1.2.1, optimized release build, debugging disabled",
-  "apk_bytes": 92622,
-  "apk_sha256": "3dbf8d0119939a1aab755d7a50054ca6e5c645cec38ff0c436c404b4d5adcf96",
+  "apk_bytes": 94938,
+  "apk_sha256": "6fb9f94f49d549928b00e0423247edf04d6bbe4bb0a68247c0495823f8b65fc8",
   "unit_tests": {
-    "tests": 41,
+    "tests": 44,
     "failures": 0
   },
   "lint": {
@@ -50,5 +50,12 @@
     "swatches_in_all_editors": true,
     "minimum_white_text_contrast": 5.19,
     "web_desktop_mobile_browser_tested": true
+  },
+  "calendar_gestures": {
+    "horizontal_month_navigation": true,
+    "swipe_up_collapses": true,
+    "swipe_down_expands": true,
+    "agenda": "selected date, 3 visible rows, scroll for more",
+    "gesture_and_render_tests": "Robolectric native graphics"
   }
 }
