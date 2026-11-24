@@ -1,5 +1,6 @@
 package org.famical.calendar;
 
+import android.animation.*;
 import android.app.*;
 import android.content.*;
 import android.os.*;
@@ -22,6 +23,7 @@ public class MainActivity extends Activity {
   private String category = "all";
   private boolean mine;
   private boolean collapsed;
+  private ValueAnimator collapseAnimator;
   private LocalDate selectedDate = LocalDate.now();
   private LinearLayout agendaPanel;
   private TextView agendaTitle;
@@ -31,14 +33,58 @@ public class MainActivity extends Activity {
   private void moveMonth(int delta) {
     YearMonth next = month.plusMonths(delta);
     if (next.getYear() < 1900 || next.getYear() > 2099) return;
+    grid.animateMonth(delta);
     month = next;
     selectedDate = month.atDay(Math.min(selectedDate.getDayOfMonth(), month.lengthOfMonth()));
     render();
   }
 
   private void setCollapsed(boolean value) {
+    if (collapsed == value || store.view().optJSONObject("user") == null) return;
+    grid.finishMonthAnimation();
+    int start = agendaPanel.getVisibility() == View.GONE ? 0 : agendaPanel.getHeight();
+    if (collapseAnimator != null) {
+      start = agendaPanel.getLayoutParams().height;
+      ValueAnimator old = collapseAnimator;
+      collapseAnimator = null;
+      old.cancel();
+    }
     collapsed = value;
+    if (!ValueAnimator.areAnimatorsEnabled() || root.getHeight() == 0) {
+      settleAgenda();
+      render();
+      return;
+    }
+    ValueAnimator animator = ValueAnimator.ofInt(Math.max(0, start), collapsed ? dp(212) : 0);
+    collapseAnimator = animator;
     render();
+    agendaPanel.getLayoutParams().height = Math.max(0, start);
+    agendaPanel.requestLayout();
+    animator.setDuration(260);
+    animator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f));
+    animator.addUpdateListener(
+        frame -> {
+          agendaPanel.getLayoutParams().height = (int) frame.getAnimatedValue();
+          agendaPanel.requestLayout();
+        });
+    animator.addListener(
+        new AnimatorListenerAdapter() {
+          @Override
+          public void onAnimationEnd(Animator animation) {
+            if (collapseAnimator == animation) {
+              collapseAnimator = null;
+              settleAgenda();
+            }
+          }
+        });
+    animator.start();
+  }
+
+  private void settleAgenda() {
+    agendaPanel.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+    agendaPanel.setVisibility(
+        collapsed && store.view().optJSONObject("user") != null ? View.VISIBLE : View.GONE);
+    agendaPanel.requestLayout();
   }
 
   private void selectDate(LocalDate date, List<NativeMonthView.Entry> entries) {
@@ -50,7 +96,9 @@ public class MainActivity extends Activity {
 
   private void renderAgenda() {
     agendaPanel.setVisibility(
-        collapsed && store.view().optJSONObject("user") != null ? View.VISIBLE : View.GONE);
+        (collapsed || collapseAnimator != null) && store.view().optJSONObject("user") != null
+            ? View.VISIBLE
+            : View.GONE);
     if (!collapsed) return;
     selectedEntries = grid.entries(selectedDate);
     agendaTitle.setText(
@@ -530,7 +578,7 @@ public class MainActivity extends Activity {
   private void settings() {
     JSONObject state = store.view(), user = state.optJSONObject("user");
     LinearLayout panel = form();
-    AlertDialog dialog = dialog("설정 · Android v2.1.0", panel);
+    AlertDialog dialog = dialog("설정 · Android v2.1.1", panel);
     if (user != null) {
       panel.addView(text(user.optString("name") + " 님", 18));
       Spinner filter =
@@ -728,12 +776,16 @@ public class MainActivity extends Activity {
 
   @Override
   protected void onPause() {
+    if (collapseAnimator != null) collapseAnimator.end();
+    if (grid != null) grid.finishMonthAnimation();
     timer.removeCallbacks(refresh);
     super.onPause();
   }
 
   @Override
   protected void onDestroy() {
+    if (collapseAnimator != null) collapseAnimator.end();
+    if (grid != null) grid.finishMonthAnimation();
     if (store != null) store.changed = () -> {};
     super.onDestroy();
   }

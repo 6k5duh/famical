@@ -85,6 +85,39 @@ public class CalendarGestureTest {
     assertTrue(collapsed.isEmpty());
   }
 
+  @Test
+  public void monthAnimationMovesBothPagesAndReleasesSnapshot() throws Exception {
+    calendar.animateMonth(1);
+    calendar.display(
+        YearMonth.of(2026, 12),
+        user,
+        new LinkedHashMap<>(),
+        "all",
+        false,
+        (day, entries) -> taps.incrementAndGet());
+    assertNotNull(field(calendar, "previousMonth"));
+    android.animation.ValueAnimator animator =
+        (android.animation.ValueAnimator) field(calendar, "monthAnimator");
+    animator.setCurrentPlayTime(100);
+    float progress = (float) field(calendar, "monthProgress");
+    assertTrue(progress > 0 && progress < 1);
+    Bitmap image =
+        Bitmap.createBitmap(calendar.getWidth(), calendar.getHeight(), Bitmap.Config.ARGB_8888);
+    calendar.draw(new Canvas(image));
+    swipe(120, 100, 120, 100);
+    assertEquals(0, taps.get());
+    calendar.animateMonth(-1);
+    assertNotNull(field(calendar, "previousMonth"));
+    ((android.animation.ValueAnimator) field(calendar, "monthAnimator")).end();
+    assertNull(field(calendar, "previousMonth"));
+    assertNull(field(calendar, "monthAnimator"));
+    swipe(120, 100, 120, 100);
+    assertEquals(1, taps.get());
+    calendar.animateMonth(1);
+    calendar.layout(0, 0, calendar.getWidth() + 20, calendar.getHeight());
+    assertNull(field(calendar, "previousMonth"));
+  }
+
   private Object field(Object target, String name) throws Exception {
     var f = target.getClass().getDeclaredField(name);
     f.setAccessible(true);
@@ -128,6 +161,15 @@ public class CalendarGestureTest {
       root.layout(0, 0, root.getMeasuredWidth(), root.getMeasuredHeight());
       calendar = (NativeMonthView) field(activity, "grid");
       swipe(150, 300, 150, 100);
+      android.animation.ValueAnimator folding =
+          (android.animation.ValueAnimator) field(activity, "collapseAnimator");
+      assertNotNull(folding);
+      folding.setCurrentPlayTime(120);
+      LinearLayout animatedPanel = (LinearLayout) field(activity, "agendaPanel");
+      assertTrue(
+          animatedPanel.getLayoutParams().height > 0
+              && animatedPanel.getLayoutParams().height < Math.round(212 * density));
+      Shadows.shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(400));
       root.measure(
           View.MeasureSpec.makeMeasureSpec((int) (390 * density), View.MeasureSpec.EXACTLY),
           View.MeasureSpec.makeMeasureSpec((int) (780 * density), View.MeasureSpec.EXACTLY));
@@ -152,7 +194,15 @@ public class CalendarGestureTest {
       assertEquals(1, list.getAdapter().getCount());
       assertFalse(list.getAdapter().isEnabled(0));
       swipe(150, 100, 150, 250);
+      Shadows.shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(400));
       assertEquals(View.GONE, panel.getVisibility());
+      swipe(150, 300, 150, 100);
+      ((android.animation.ValueAnimator) field(activity, "collapseAnimator"))
+          .setCurrentPlayTime(100);
+      swipe(150, 100, 150, 300);
+      ((android.animation.ValueAnimator) field(activity, "collapseAnimator")).end();
+      assertEquals(View.GONE, panel.getVisibility());
+      assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, panel.getLayoutParams().height);
     }
   }
 }

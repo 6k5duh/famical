@@ -1,10 +1,10 @@
 # Famical 다운로드
 
-[Android v2.1.0 APK 다운로드](famical-android-2.1.0.apk) · [Android 설치 안내](../android/README.md)
+[Android v2.1.1 APK 다운로드](famical-android-2.1.1.apk) · [Android 설치 안내](../android/README.md)
 
 [Windows v2.0.1 x64 ZIP 다운로드](famical-windows-2.0.1-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
-Android v2.1.0은 좌우 스와이프 월 이동과 위로 스와이프하는 달력 접기를 추가했습니다. 접힌 달력 아래에는 선택한 날짜의 일정 3줄을 표시하며 추가 일정은 목록을 스크롤해 확인합니다. 달력을 아래로 밀면 다시 펼칩니다.
+Android v2.1.1은 좌우 월 이동 슬라이드와 달력 접기·펼치기의 부드러운 높이 전환을 추가했습니다. 접힌 달력 아래에는 선택한 날짜의 일정 3줄을 표시하며 추가 일정은 목록을 스크롤해 확인합니다. 달력을 아래로 밀면 다시 펼칩니다.
 
 일정 막대 색상 16가지를 제공하며, 색상 선택창에서 실제 색상 견본을 확인합니다. 달력 배경에 사용하는 색상값은 선택지에서 제외했습니다.
 

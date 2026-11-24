@@ -1,5 +1,6 @@
 package org.famical.calendar;
 
+import android.animation.*;
 import android.content.Context;
 import android.graphics.*;
 import android.view.*;
@@ -38,6 +39,70 @@ final class NativeMonthView extends View {
   private YearMonth month = YearMonth.now();
   private JSONObject user = new JSONObject();
   private int count = 35;
+  private Bitmap previousMonth;
+  private ValueAnimator monthAnimator;
+  private float monthProgress = 1;
+  private int monthDirection;
+
+  void animateMonth(int direction) {
+    if (!ValueAnimator.areAnimatorsEnabled()
+        || getWidth() <= 0
+        || getHeight() <= 0
+        || first == null) {
+      finishMonthAnimation();
+      return;
+    }
+    Bitmap snapshot = Bitmap.createBitmap(getWidth(), getHeight(), Bitmap.Config.ARGB_8888);
+    draw(new Canvas(snapshot));
+    finishMonthAnimation();
+    previousMonth = snapshot;
+    monthDirection = direction > 0 ? 1 : -1;
+    monthProgress = 0;
+    ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
+    monthAnimator = animator;
+    animator.setDuration(240);
+    animator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f));
+    animator.addUpdateListener(
+        value -> {
+          monthProgress = (float) value.getAnimatedValue();
+          invalidate();
+        });
+    animator.addListener(
+        new AnimatorListenerAdapter() {
+          @Override
+          public void onAnimationEnd(Animator animation) {
+            if (monthAnimator == animation) {
+              monthAnimator = null;
+              previousMonth = null;
+              monthProgress = 1;
+              invalidate();
+            }
+          }
+        });
+    animator.start();
+  }
+
+  void finishMonthAnimation() {
+    ValueAnimator animator = monthAnimator;
+    monthAnimator = null;
+    if (animator != null) animator.cancel();
+    previousMonth = null;
+    monthProgress = 1;
+    invalidate();
+  }
+
+  @Override
+  protected void onSizeChanged(int w, int h, int oldW, int oldH) {
+    super.onSizeChanged(w, h, oldW, oldH);
+    if (w != oldW || h != oldH) finishMonthAnimation();
+  }
+
+  @Override
+  protected void onDetachedFromWindow() {
+    finishMonthAnimation();
+    super.onDetachedFromWindow();
+  }
+
   private float downX, downY;
   private boolean tracking, moved;
   private LocalDate selected;
@@ -131,6 +196,17 @@ final class NativeMonthView extends View {
   protected void onDraw(Canvas canvas) {
     super.onDraw(canvas);
     if (first == null) return;
+    if (previousMonth != null) {
+      int frame = canvas.save();
+      canvas.clipRect(0, 0, getWidth(), getHeight());
+      canvas.drawBitmap(previousMonth, -monthDirection * monthProgress * getWidth(), 0, null);
+      canvas.translate(monthDirection * (1 - monthProgress) * getWidth(), 0);
+      drawMonth(canvas);
+      canvas.restoreToCount(frame);
+    } else drawMonth(canvas);
+  }
+
+  private void drawMonth(Canvas canvas) {
     float width = getWidth() / 7f, header = dp(22), height = (getHeight() - header) / (count / 7f);
     for (int col = 0; col < 7; col++)
       text(
@@ -259,6 +335,7 @@ final class NativeMonthView extends View {
           collapse.accept(dy < 0);
           return true;
         }
+        if (monthAnimator != null) return true;
         if (moved || Math.hypot(dx, dy) > ViewConfiguration.get(getContext()).getScaledTouchSlop())
           return true;
         float header = dp(22);
