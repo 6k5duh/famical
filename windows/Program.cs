@@ -65,6 +65,7 @@ namespace Famical.Windows
         private readonly NativeStore store;
         private readonly DispatcherTimer syncTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
         private WindowState lastVisibleState = WindowState.Normal;
+        private readonly DispatcherTimer settingsTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
 
         public CalendarWindow()
         {
@@ -152,12 +153,18 @@ namespace Famical.Windows
             syncTimer.Tick += (_, __) => Navigate();
             syncTimer.Start();
             Navigate();
+            settingsTimer.Tick += (_, __) => { settingsTimer.Stop(); SaveSettings(); };
+            LocationChanged += (_, __) => QueueSaveSettings();
+            SizeChanged += (_, __) => QueueSaveSettings();
+            IsVisibleChanged += (_, __) => { if (!IsVisible) SaveSettings(); };
+            transparency.ValueChanged += (_, __) => QueueSaveSettings();
             StateChanged += (_, __) =>
             {
                 if (WindowState == WindowState.Minimized)
                     Hide();
                 else
                     lastVisibleState = WindowState;
+                QueueSaveSettings();
             };
             Closed += (_, __) =>
             {
@@ -166,7 +173,7 @@ namespace Famical.Windows
                 tray.Dispose();
                 trayMenu.Dispose();
                 trayIcon.Dispose();
-                SaveSettings();
+                settingsTimer.Stop();
                 syncTimer.Stop();
                 store.Dispose();
             };
@@ -196,7 +203,18 @@ namespace Famical.Windows
             SetWindowLong(handle, ExtendedStyleIndex, (style | ToolWindowStyle) & ~AppWindowStyle);
         }
 
-        internal void AllowExit() => exiting = true;
+        internal void AllowExit()
+        {
+            SaveSettings();
+            exiting = true;
+        }
+
+        private void QueueSaveSettings()
+        {
+            if (!IsLoaded || closed) return;
+            settingsTimer.Stop();
+            settingsTimer.Start();
+        }
 
         internal void OpenCalendar()
         {
@@ -210,6 +228,7 @@ namespace Famical.Windows
 
         protected override void OnClosing(CancelEventArgs e)
         {
+            SaveSettings();
             base.OnClosing(e);
             if (exiting)
                 return;
@@ -245,9 +264,22 @@ namespace Famical.Windows
             try
             {
                 var settings = XElement.Load(Path.Combine(dataDir, "window.xml"));
-                Width = Clamp((double?)settings.Attribute("width") ?? Width, MinWidth, SystemParameters.WorkArea.Width);
-                Height = Clamp((double?)settings.Attribute("height") ?? Height, MinHeight, SystemParameters.WorkArea.Height);
+                Width = Clamp((double?)settings.Attribute("width") ?? Width, MinWidth, SystemParameters.VirtualScreenWidth);
+                Height = Clamp((double?)settings.Attribute("height") ?? Height, MinHeight, SystemParameters.VirtualScreenHeight);
                 Opacity = Clamp((double?)settings.Attribute("opacity") ?? 1, 0.4, 1);
+                double left = (double?)settings.Attribute("left") ?? double.NaN;
+                double top = (double?)settings.Attribute("top") ?? double.NaN;
+                if (!double.IsNaN(left) && !double.IsInfinity(left) &&
+                    !double.IsNaN(top) && !double.IsInfinity(top))
+                {
+                    WindowStartupLocation = WindowStartupLocation.Manual;
+                    Left = Clamp(left, SystemParameters.VirtualScreenLeft,
+                        SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - Width);
+                    Top = Clamp(top, SystemParameters.VirtualScreenTop,
+                        SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - Height);
+                }
+                if ((string)settings.Attribute("state") == "Maximized")
+                    WindowState = lastVisibleState = WindowState.Maximized;
                 if (Uri.TryCreate((string)settings.Attribute("server"), UriKind.Absolute, out var uri) &&
                     uri.Scheme == Uri.UriSchemeHttps && uri.UserInfo == "" && uri.PathAndQuery == "/" && uri.Fragment == "")
                     return uri;
@@ -266,12 +298,16 @@ namespace Famical.Windows
         {
             try
             {
-                var bounds = RestoreBounds;
-                if (bounds.IsEmpty)
+                if (!IsLoaded) return;
+                var bounds = WindowState == WindowState.Normal
+                    ? new Rect(Left, Top, ActualWidth, ActualHeight) : RestoreBounds;
+                if (bounds.IsEmpty || bounds.Width <= 0 || bounds.Height <= 0)
                     return;
                 Directory.CreateDirectory(dataDir);
                 new XElement("window", new XAttribute("server", server.AbsoluteUri),
                     new XAttribute("width", bounds.Width), new XAttribute("height", bounds.Height),
+                    new XAttribute("left", bounds.Left), new XAttribute("top", bounds.Top),
+                    new XAttribute("state", lastVisibleState.ToString()),
                     new XAttribute("opacity", Opacity)).Save(Path.Combine(dataDir, "window.xml"));
             }
             catch (IOException) { }
