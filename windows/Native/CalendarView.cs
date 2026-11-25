@@ -292,7 +292,16 @@ namespace Famical.Windows
             form.Children.Add(error);
             var dialog = Dialog("일정", form);
             if (source == null)
+            {
+                dialog.PreviewKeyDown += (_, e) =>
+                {
+                    if (e.Key != System.Windows.Input.Key.Escape)
+                        return;
+                    e.Handled = true;
+                    dialog.Close();
+                };
                 form.Children.Add(Button("상세", () => detail.Visibility = Visibility.Visible));
+            }
             form.Children.Add(Button("저장", () =>
             {
                 try

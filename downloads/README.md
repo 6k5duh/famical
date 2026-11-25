@@ -2,7 +2,7 @@
 
 [Android v2.1.2 APK 다운로드](famical-android-2.1.2.apk) · [Android 설치 안내](../android/README.md)
 
-[Windows v2.0.2 x64 ZIP 다운로드](famical-windows-2.0.2-x64.zip) · [Windows 설치 안내](../windows/README.md)
+[Windows v2.0.3 x64 ZIP 다운로드](famical-windows-2.0.3-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
 Android v2.1.2은 좌우 월 이동 슬라이드와 달력 접기·펼치기의 부드러운 높이 전환을 제공합니다. 접힌 달력 아래에는 선택한 날짜의 일정 3줄을 표시하며 추가 일정은 목록을 스크롤해 확인합니다. 달력을 아래로 밀면 다시 펼칩니다.
 
@@ -27,3 +27,5 @@ iPhone은 기존 웹앱과 Scriptable 위젯을 사용할 수 있습니다. [Scr
 Android v2.1.2에서는 홈 화면 위젯의 날짜 칸을 누르면 해당 월·날짜를 선택하고 하단에 그날의 일정 목록을 엽니다. 이미 앱이 실행 중이어도 적용됩니다. APK 업데이트 후 위젯의 갱신 버튼을 한 번 누르세요. NAS가 v2.0.1이면 서버 재설치는 필요 없습니다.
 
 Windows v2.0.2에서는 날짜 칸의 빈 공간을 더블클릭하면 해당 날짜의 간편 입력창을 엽니다. 새 일정 기본값은 회사·나에게만 보이기이며 상세 버튼으로 변경합니다. NAS가 v2.0.1이면 서버 재빌드는 필요 없습니다.
+
+Windows v2.0.3에서는 빠른 일정 추가창에서 Esc를 누르면 저장하지 않고 취소합니다. 상세를 펼친 상태에서도 적용됩니다.
