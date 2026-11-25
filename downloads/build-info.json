@@ -1,6 +1,6 @@
 {
-  "version_name": "2.2.0",
-  "version_code": 12,
+  "version_name": "2.2.1",
+  "version_code": 13,
   "application_id": "org.famical.calendar",
   "min_sdk": 26,
   "target_sdk": 35,
@@ -13,10 +13,10 @@
   "app_foreground_sync_seconds": 60,
   "widget_refresh_request_minutes": 60,
   "signing": "Same development certificate as v1.2.1, optimized release build, debugging disabled",
-  "apk_bytes": 99550,
-  "apk_sha256": "77992784c160a4b6a04dd29bb7b3358a5894bc7a9c85a2ceaf5fca1a9e06fc37",
+  "apk_bytes": 100258,
+  "apk_sha256": "d273ad5d6cb5bc1409d68337ca0112913dd4bdc24157dca7fb923bd7fa85c929",
   "unit_tests": {
-    "tests": 56,
+    "tests": 59,
     "failures": 0
   },
   "lint": {
@@ -86,6 +86,17 @@
     "deduplicates_across_restarts": true,
     "multipart_sms": true,
     "mms_rcs": false,
-    "physical_sms_tested": false
+    "physical_sms_tested": false,
+    "leave_labels": {
+      "연차/월간연차": "년차",
+      "생리휴가": "생휴",
+      "경조휴가": "경조",
+      "향군(예비군)": "향군",
+      "유급": "유급",
+      "무급": "무급",
+      "산전후휴가": "출산",
+      "가족돌봄휴가": "돌봄",
+      "유계결근": "유결"
+    }
   }
 }

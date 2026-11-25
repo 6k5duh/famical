@@ -1,6 +1,6 @@
 # 달력 다운로드
 
-[Android v2.2.0 APK 다운로드](famical-android-2.2.0.apk) · [Android 설치 안내](../android/README.md)
+[Android v2.2.1 APK 다운로드](famical-android-2.2.1.apk) · [Android 설치 안내](../android/README.md)
 
 [Windows v2.0.5 x64 ZIP 다운로드](famical-windows-2.0.5-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
@@ -33,3 +33,5 @@ Windows v2.0.3에서는 빠른 일정 추가창에서 Esc를 누르면 저장하
 Windows v2.0.4에서는 창 위치·크기·최대화 상태·투명도를 자동 저장하고 다시 실행할 때 복원합니다. 업데이트 후 원하는 위치와 크기로 한 번 조절하세요. NAS 재빌드는 필요 없습니다.
 
 Android v2.2.0 / Windows v2.0.5의 표시 이름은 **달력**입니다. 기존 설치와 같은 식별자·저장 경로를 유지합니다. Android 설정에서 SMS 자동 등록을 켜고 권한을 허용하면 지정 번호의 휴가승인 요청을 회사·개인 일정으로 자동 등록합니다. [SMS 설정과 지원 범위](../android/README.md#휴가-요청-sms-자동-등록-v220)를 확인하세요. 앱 기능에는 NAS 재빌드가 필요 없으며, 웹의 제목 변경은 NAS 소스 업데이트·재빌드 후 적용됩니다.
+
+Android v2.2.1은 휴가 요청 SMS의 9가지 종류를 지정한 약칭(년차·생휴·경조·향군·유급·무급·출산·돌봄·유결)으로 등록합니다. 사진의 괄호 설명이 붙은 종류도 인식합니다. 기존 앱 위에 업데이트 설치하면 자동 등록 설정이 유지되며 NAS/Windows 업데이트는 필요 없습니다.

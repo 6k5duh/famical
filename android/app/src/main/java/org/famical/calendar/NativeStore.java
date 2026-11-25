@@ -156,7 +156,7 @@ class NativeStore extends SQLiteOpenHelper {
     String key = LeaveSms.key(event);
     JSONObject imported = state.optJSONObject("smsImported");
     if (imported == null) imported = new JSONObject();
-    if (imported.has(key)) return false;
+    if (imported.has(key) || imported.has(LeaveSms.legacyKey(event))) return false;
     JSONObject before = copy(state);
     event = copy(event).put("owner", user.getLong("id")).put("author", user.optString("name"));
     imported.put(key, true);

@@ -17,6 +17,56 @@ public class LeaveSmsTest {
       "[Web발신]\n[휴가승인 요청]\n신청자: 강지은\n2026-11-19~2026-11-19\n연차/월간연차\n급여명세서앱에서 승인";
 
   @Test
+  public void requestedLeaveNamesAndPhotoDescriptionsBecomeShortTitles() throws Exception {
+    String[][] cases = {
+      {"연차/월간연차", "년차"},
+      {"월간연차", "년차"},
+      {"생리휴가", "생휴"},
+      {"경조휴가", "경조"},
+      {"향군(예비군)", "향군"},
+      {"유급", "유급"},
+      {"유급(근속휴가, 대체휴가등)", "유급"},
+      {"무급", "무급"},
+      {"산전후휴가", "출산"},
+      {"가족돌봄휴가", "돌봄"},
+      {"유계결근", "유결"},
+      {"유계결근(연차/월간연차 잔여 부족)", "유결"},
+      {" 향군 （예비군） ", "향군"}
+    };
+    for (String[] entry : cases) {
+      JSONObject event = LeaveSms.parse("0522195000", BODY.replace("연차/월간연차", entry[0]));
+      assertNotNull(entry[0], event);
+      assertEquals(entry[0], "강지은 " + entry[1], event.getString("title"));
+      assertEquals("work", event.getString("category"));
+      assertEquals("private", event.getString("visibility"));
+    }
+  }
+
+  @Test
+  public void descriptionsDoNotCauseDuplicatesButDifferentLeaveTypesDo() throws Exception {
+    NativeStore store = signedInStore();
+    store.enableLeaveSms(true);
+    assertTrue(store.importLeaveSms(LeaveSms.parse("0522195000", BODY.replace("연차/월간연차", "유급"))));
+    assertFalse(
+        store.importLeaveSms(
+            LeaveSms.parse("0522195000", BODY.replace("연차/월간연차", "유급(근속휴가, 대체휴가등)"))));
+    assertTrue(store.importLeaveSms(LeaveSms.parse("0522195000", BODY.replace("연차/월간연차", "무급"))));
+    store.close();
+  }
+
+  @Test
+  public void previouslyImportedLongNameIsNotImportedAgainAfterUpgrade() throws Exception {
+    NativeStore store = signedInStore();
+    store.enableLeaveSms(true);
+    JSONObject old = LeaveSms.parse("0522195000", BODY).put("title", "강지은 생리휴가");
+    assertTrue(store.importLeaveSms(old));
+    assertFalse(
+        store.importLeaveSms(LeaveSms.parse("0522195000", BODY.replace("연차/월간연차", "생리휴가"))));
+    assertEquals(1, NativeStore.array(store.view(), "pending").length());
+    store.close();
+  }
+
+  @Test
   public void exactExampleBecomesPrivateWorkEvent() throws Exception {
     JSONObject e = LeaveSms.parse("052-219-5000", BODY);
     assertEquals("강지은 년차", e.getString("title"));

@@ -611,7 +611,7 @@ public class MainActivity extends Activity {
   private void settings() {
     JSONObject state = store.view(), user = state.optJSONObject("user");
     LinearLayout panel = form();
-    AlertDialog dialog = dialog("설정 · Android v2.2.0", panel);
+    AlertDialog dialog = dialog("설정 · Android v2.2.1", panel);
     if (user != null) {
       panel.addView(text(user.optString("name") + " 님", 18));
       boolean smsPermission =
