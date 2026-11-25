@@ -1,8 +1,8 @@
-# Famical 다운로드
+# 달력 다운로드
 
-[Android v2.1.2 APK 다운로드](famical-android-2.1.2.apk) · [Android 설치 안내](../android/README.md)
+[Android v2.2.0 APK 다운로드](famical-android-2.2.0.apk) · [Android 설치 안내](../android/README.md)
 
-[Windows v2.0.4 x64 ZIP 다운로드](famical-windows-2.0.4-x64.zip) · [Windows 설치 안내](../windows/README.md)
+[Windows v2.0.5 x64 ZIP 다운로드](famical-windows-2.0.5-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
 Android v2.1.2은 좌우 월 이동 슬라이드와 달력 접기·펼치기의 부드러운 높이 전환을 제공합니다. 접힌 달력 아래에는 선택한 날짜의 일정 3줄을 표시하며 추가 일정은 목록을 스크롤해 확인합니다. 달력을 아래로 밀면 다시 펼칩니다.
 
@@ -31,3 +31,5 @@ Windows v2.0.2에서는 날짜 칸의 빈 공간을 더블클릭하면 해당 �
 Windows v2.0.3에서는 빠른 일정 추가창에서 Esc를 누르면 저장하지 않고 취소합니다. 상세를 펼친 상태에서도 적용됩니다.
 
 Windows v2.0.4에서는 창 위치·크기·최대화 상태·투명도를 자동 저장하고 다시 실행할 때 복원합니다. 업데이트 후 원하는 위치와 크기로 한 번 조절하세요. NAS 재빌드는 필요 없습니다.
+
+Android v2.2.0 / Windows v2.0.5의 표시 이름은 **달력**입니다. 기존 설치와 같은 식별자·저장 경로를 유지합니다. Android 설정에서 SMS 자동 등록을 켜고 권한을 허용하면 지정 번호의 휴가승인 요청을 회사·개인 일정으로 자동 등록합니다. [SMS 설정과 지원 범위](../android/README.md#휴가-요청-sms-자동-등록-v220)를 확인하세요. 앱 기능에는 NAS 재빌드가 필요 없으며, 웹의 제목 변경은 NAS 소스 업데이트·재빌드 후 적용됩니다.

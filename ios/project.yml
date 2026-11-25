@@ -28,7 +28,7 @@ targets:
     info:
       path: Generated/App-Info.plist
       properties:
-        CFBundleDisplayName: 우리 가족 달력
+        CFBundleDisplayName: 달력
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -54,7 +54,7 @@ targets:
     info:
       path: Generated/Widget-Info.plist
       properties:
-        CFBundleDisplayName: 가족 달력 위젯
+        CFBundleDisplayName: 달력 위젯
         FamicalAppGroup: $(FAMICAL_APP_GROUP)
         FamicalKeychainGroup: $(FAMICAL_KEYCHAIN_GROUP)
         NSExtension:

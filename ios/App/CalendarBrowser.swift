@@ -64,14 +64,14 @@ struct CalendarBrowser: UIViewRepresentable {
         func webView(_ webView:WKWebView,didFailProvisionalNavigation navigation:WKNavigation!,withError error:Error) { notice("서버에 연결하지 못했습니다. HTTPS 인증서, 인터넷 연결과 NAS 실행 상태를 확인해 주세요.") }
         func webView(_ webView:WKWebView,runJavaScriptConfirmPanelWithMessage message:String,initiatedByFrame frame:WKFrameInfo,completionHandler:@escaping(Bool)->Void) {
             guard let controller=presenter else{completionHandler(false);return}
-            let alert=UIAlertController(title:"가족 달력",message:message,preferredStyle:.alert)
+            let alert=UIAlertController(title:"달력",message:message,preferredStyle:.alert)
             alert.addAction(UIAlertAction(title:"취소",style:.cancel){_ in completionHandler(false)})
             alert.addAction(UIAlertAction(title:"확인",style:.default){_ in completionHandler(true)})
             controller.present(alert,animated:true)
         }
         func webView(_ webView:WKWebView,runJavaScriptAlertPanelWithMessage message:String,initiatedByFrame frame:WKFrameInfo,completionHandler:@escaping()->Void) {
             guard let controller=presenter else{completionHandler();return}
-            let alert=UIAlertController(title:"가족 달력",message:message,preferredStyle:.alert)
+            let alert=UIAlertController(title:"달력",message:message,preferredStyle:.alert)
             alert.addAction(UIAlertAction(title:"확인",style:.default){_ in completionHandler()});controller.present(alert,animated:true)
         }
         private var presenter:UIViewController? {

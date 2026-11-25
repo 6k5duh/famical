@@ -13,6 +13,8 @@ import org.json.*;
 
 public class MainActivity extends Activity {
   private SharedPreferences preferences;
+  private long smsPermissionUser;
+  private String smsPermissionServer;
   private String server;
   private NativeStore store;
   private NativeCalendar calendar;
@@ -609,9 +611,48 @@ public class MainActivity extends Activity {
   private void settings() {
     JSONObject state = store.view(), user = state.optJSONObject("user");
     LinearLayout panel = form();
-    AlertDialog dialog = dialog("설정 · Android v2.1.2", panel);
+    AlertDialog dialog = dialog("설정 · Android v2.2.0", panel);
     if (user != null) {
       panel.addView(text(user.optString("name") + " 님", 18));
+      boolean smsPermission =
+          checkSelfPermission(android.Manifest.permission.RECEIVE_SMS)
+              == android.content.pm.PackageManager.PERMISSION_GRANTED;
+      boolean smsOn = state.optBoolean("smsEnabled") && smsPermission;
+      panel.addView(text("휴가 문자 자동 등록 · " + (smsOn ? "켜짐" : "꺼짐"), 14));
+      panel.addView(
+          text("052-219-5000의 [휴가승인 요청] 문자를 회사·나에게만 공개 일정으로 등록합니다. 승인 완료를 뜻하지 않습니다.", 12));
+      if (!state.optString("smsLastImport").isEmpty())
+        panel.addView(text("최근 문자 등록 " + state.optString("smsLastImport"), 12));
+      panel.addView(
+          action(
+              smsOn ? "문자 자동 등록 끄기" : "문자 자동 등록 켜기",
+              () -> {
+                dialog.dismiss();
+                if (smsOn) {
+                  setLeaveSmsEnabled(false);
+                  return;
+                }
+                new AlertDialog.Builder(this)
+                    .setTitle("휴가 문자 자동 등록")
+                    .setMessage(
+                        "지금부터 수신하는 지정 번호의 휴가 요청 SMS를 읽어 일정에 등록합니다. 문자 원문은 서버에 보내지 않으며 이름·휴가 날짜로 만든"
+                            + " 일정만 동기화합니다. 기존 문자는 가져오지 않습니다.")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton(
+                        "켜기",
+                        (d, which) -> {
+                          if (checkSelfPermission(android.Manifest.permission.RECEIVE_SMS)
+                              == android.content.pm.PackageManager.PERMISSION_GRANTED)
+                            setLeaveSmsEnabled(true);
+                          else {
+                            smsPermissionUser = user.optLong("id");
+                            smsPermissionServer = server;
+                            requestPermissions(
+                                new String[] {android.Manifest.permission.RECEIVE_SMS}, 52);
+                          }
+                        })
+                    .show();
+              }));
       Spinner filter =
           choice(
               panel,
@@ -942,9 +983,32 @@ public class MainActivity extends Activity {
     store.sync();
   }
 
+  private void setLeaveSmsEnabled(boolean enabled) {
+    try {
+      store.enableLeaveSms(enabled);
+      notice(enabled ? "휴가 문자 자동 등록을 켰습니다. 이후 수신하는 SMS부터 적용됩니다." : "휴가 문자 자동 등록을 껐습니다.");
+    } catch (Exception e) {
+      notice(e.getMessage());
+    }
+  }
+
   @Override
   public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
     super.onRequestPermissionsResult(request, permissions, results);
+    if (request == 52) {
+      JSONObject user = store.view().optJSONObject("user");
+      if (checkSelfPermission(android.Manifest.permission.RECEIVE_SMS)
+              == android.content.pm.PackageManager.PERMISSION_GRANTED
+          && user != null
+          && user.optLong("id") == smsPermissionUser
+          && server.equals(smsPermissionServer)) setLeaveSmsEnabled(true);
+      else
+        notice(
+            "SMS 권한이 허용되지 않아 자동 등록을 켜지 않았습니다. 휴대전화 설정의 앱 권한을 확인하세요. 기기·설치 방식에 따라 SMS 권한이 제한될 수"
+                + " 있습니다.");
+      smsPermissionUser = 0;
+      smsPermissionServer = null;
+    }
     if (request == 41) {
       if (CalendarSync.permitted(this)) selectCalendar();
       else syncNotice("캘린더 권한을 허용해야 연동할 수 있습니다. 가족 달력은 계속 사용할 수 있습니다.");

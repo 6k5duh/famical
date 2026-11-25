@@ -1,6 +1,6 @@
 {
-  "version_name": "2.1.2",
-  "version_code": 11,
+  "version_name": "2.2.0",
+  "version_code": 12,
   "application_id": "org.famical.calendar",
   "min_sdk": 26,
   "target_sdk": 35,
@@ -13,10 +13,10 @@
   "app_foreground_sync_seconds": 60,
   "widget_refresh_request_minutes": 60,
   "signing": "Same development certificate as v1.2.1, optimized release build, debugging disabled",
-  "apk_bytes": 96674,
-  "apk_sha256": "93b3b3c5ec1aa9731fc1f14cca6a8c6e7e7a1b909e7f6d78fb3d3d6c0b6af54a",
+  "apk_bytes": 99550,
+  "apk_sha256": "77992784c160a4b6a04dd29bb7b3358a5894bc7a9c85a2ceaf5fca1a9e06fc37",
   "unit_tests": {
-    "tests": 47,
+    "tests": 56,
     "failures": 0
   },
   "lint": {
@@ -24,16 +24,17 @@
     "warnings": 53
   },
   "windows": {
-    "version": "2.0.4",
+    "version": "2.0.5",
     "native_ui": "WPF",
     "local_store": "atomic JSON encrypted with Windows DPAPI",
-    "zip_bytes": 57906,
-    "zip_sha256": "051c2dc7ddcf07b540a9d5e0a454c2666d679e29a20b2b35d2792182add3da4d",
+    "zip_bytes": 57908,
+    "zip_sha256": "21baa43ecd7ea52f7b4ca921654a9abfabcd1980963956717da0c6cddc74294a",
     "build_warnings": 0,
     "blank_date_double_click_quick_add": true,
     "quick_add_escape_cancels": true,
     "window_placement_restored": true,
-    "window_settings_autosave_ms": 400
+    "window_settings_autosave_ms": 400,
+    "display_name": "달력"
   },
   "server_tests": {
     "tests": 31,
@@ -72,5 +73,19 @@
     "opens_selected_date_agenda": true,
     "reuses_running_activity": true,
     "tests": "Robolectric widget clicks, cold/warm activity, year rollover, invalid dates, saved state"
+  },
+  "display_name": "달력",
+  "leave_sms": {
+    "sender": "052-219-5000",
+    "opt_in": true,
+    "runtime_permission": "RECEIVE_SMS",
+    "reads_existing_inbox": false,
+    "uploads_raw_message": false,
+    "default_category": "work",
+    "default_visibility": "private",
+    "deduplicates_across_restarts": true,
+    "multipart_sms": true,
+    "mms_rcs": false,
+    "physical_sms_tested": false
   }
 }

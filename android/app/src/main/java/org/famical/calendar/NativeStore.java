@@ -143,6 +143,38 @@ class NativeStore extends SQLiteOpenHelper {
     notifyChanged();
   }
 
+  synchronized void enableLeaveSms(boolean enabled) throws Exception {
+    if (state.optJSONObject("user") == null) throw new IllegalStateException("먼저 로그인하세요.");
+    state.put("smsEnabled", enabled);
+    persist();
+  }
+
+  synchronized boolean importLeaveSms(JSONObject event) throws Exception {
+    JSONObject user = state.optJSONObject("user");
+    if (!state.optBoolean("smsEnabled") || user == null) return false;
+    NativeCalendar.get(context).validate(event);
+    String key = LeaveSms.key(event);
+    JSONObject imported = state.optJSONObject("smsImported");
+    if (imported == null) imported = new JSONObject();
+    if (imported.has(key)) return false;
+    JSONObject before = copy(state);
+    event = copy(event).put("owner", user.getLong("id")).put("author", user.optString("name"));
+    imported.put(key, true);
+    state.put("smsImported", imported);
+    state.put(
+        "smsLastImport",
+        java.time.LocalDateTime.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("MM/dd HH:mm")));
+    try {
+      // The deduplication record and outbox are persisted in the same SQLite write.
+      save(key, event, false);
+    } catch (Exception e) {
+      state = before;
+      throw e;
+    }
+    return true;
+  }
+
   private static void remove(JSONArray items, String key) {
     for (int i = items.length() - 1; i >= 0; i--)
       if (items.optJSONObject(i).optString("key").equals(key)) items.remove(i);

@@ -36,7 +36,7 @@ struct CalendarWidgetView:View {
             } else { monthGrid;eventList(limit:3) }
             Spacer(minLength:0)
             HStack {
-                Text(entry.snapshot.message.isEmpty ? "우리 가족 달력" : entry.snapshot.message).lineLimit(1)
+                Text(entry.snapshot.message.isEmpty ? "달력" : entry.snapshot.message).lineLimit(1)
                 Spacer()
                 Text(entry.snapshot.date,style:.time)
             }.font(.system(size:9)).foregroundStyle(.secondary)
@@ -97,7 +97,7 @@ struct FamicalWidget:Widget {
     let kind="FamicalCalendar"
     var body:some WidgetConfiguration {
         StaticConfiguration(kind:kind,provider:CalendarProvider()) { CalendarWidgetView(entry:$0) }
-            .configurationDisplayName("우리 가족 달력")
+            .configurationDisplayName("달력")
             .description("월 달력, 오늘 일정과 교대조를 확인합니다.")
             .supportedFamilies([.systemSmall,.systemMedium,.systemLarge])
             .contentMarginsDisabled()

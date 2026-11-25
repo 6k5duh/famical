@@ -69,7 +69,7 @@ namespace Famical.Windows
 
         public CalendarWindow()
         {
-            Title = "Famical · 가족 달력";
+            Title = "달력";
             ShowInTaskbar = false;
             Background = new SolidColorBrush(Color.FromRgb(15, 35, 51));
             Foreground = Brushes.White;
@@ -123,7 +123,7 @@ namespace Famical.Windows
                 Background = Brushes.Transparent,
                 Child = new TextBlock
                 {
-                    Text = "FAMICAL",
+                    Text = "달력",
                     FontWeight = FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center
                 }
@@ -145,7 +145,7 @@ namespace Famical.Windows
             tray = new Forms.NotifyIcon
             {
                 Icon = trayIcon,
-                Text = "Famical · 가족 달력",
+                Text = "달력",
                 ContextMenuStrip = trayMenu,
                 Visible = true
             };
