@@ -24,12 +24,13 @@
     "warnings": 53
   },
   "windows": {
-    "version": "2.0.1",
+    "version": "2.0.2",
     "native_ui": "WPF",
     "local_store": "atomic JSON encrypted with Windows DPAPI",
-    "zip_bytes": 57001,
-    "zip_sha256": "712bc63daa8c357dc9c6880bbfee5cf3e844c6d0d13834b9687ad9f0adf28d70",
-    "build_warnings": 0
+    "zip_bytes": 57223,
+    "zip_sha256": "3a1b69a1bf35be8fa12ad48509e3f132702cb3c2d69a655a2ca12de6565968d4",
+    "build_warnings": 0,
+    "blank_date_double_click_quick_add": true
   },
   "server_tests": {
     "tests": 31,

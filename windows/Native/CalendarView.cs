@@ -116,6 +116,22 @@ namespace Famical.Windows
                     Background = Brush(!Almanac.Weekday(date) || holiday != "" ? "#392d39" : shift == "야간" ? "#293350" : shift == "주간" ? "#18404f" : "#16344a"),
                     Opacity = outside ? .55 : 1
                 };
+                border.MouseLeftButtonDown += (_, e) =>
+                {
+                    if (e.ClickCount != 2)
+                        return;
+                    // Buttons keep their existing date/agenda/edit actions.
+                    var target = e.OriginalSource as DependencyObject;
+                    while (target != null && target != border)
+                    {
+                        if (target is System.Windows.Controls.Primitives.ButtonBase)
+                            return;
+                        target = target is FrameworkContentElement content
+                            ? content.Parent : VisualTreeHelper.GetParent(target);
+                    }
+                    e.Handled = true;
+                    Edit(null, null, date);
+                };
                 var matches = occurrences.Where(o => o.Item3 <= date && o.Item4 >= date &&
                     !(o.Item2.category == "work" && o.Item3 != o.Item4 && !Almanac.Weekday(date))).OrderBy(o => o.Item2.clock).ToList();
                 var head = new DockPanel();
@@ -248,6 +264,8 @@ namespace Famical.Windows
             var form = Form();
             form.Children.Add(new TextBlock { Text = date.ToString("yyyy년 M월 d일") });
             var titleBox = Field(form, "일정 (새 일정은 한 줄에 하나씩)", item.title, source == null);
+            if (source == null)
+                titleBox.Loaded += (_, __) => titleBox.Focus();
             var detail = new StackPanel { Visibility = source == null ? Visibility.Collapsed : Visibility.Visible };
             form.Children.Add(detail);
             var start = Field(detail, "시작일 (YYYY-MM-DD 또는 숫자 8자리)", item.day);
