@@ -108,5 +108,19 @@
       "유계결근": "유결"
     }
   },
-  "sync_timestamp_hidden": true
+  "sync_timestamp_hidden": true,
+  "web": {
+    "version": "2.0.2",
+    "server_tests": 31,
+    "javascript_tests": 7,
+    "browser_checked": [
+      "desktop browser",
+      "desktop calendar mode",
+      "mobile touch"
+    ],
+    "double_click_quick_add": true,
+    "escape_cancel": true,
+    "sync_interval_seconds": 30,
+    "sync_timestamp_hidden": true
+  }
 }

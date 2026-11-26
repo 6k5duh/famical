@@ -9,9 +9,10 @@ async function setup(){
   class Element {
     constructor(){this.value='';this.checked=false;this.style={};this.classList={add(){}};this.children=[];}
     append(...items){this.children.push(...items);}replaceChildren(){this.children=[];}
-    setAttribute(){}querySelectorAll(){return [];}showModal(){}close(){}
+    addEventListener(){}setAttribute(){}querySelectorAll(){return [];}showModal(){}close(){}
   }
   const document={getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement(){return new Element();},addEventListener(){}};
+  document.getElementById('eventForm').elements={day:new Element()};
   const fetch=async(path,opts)=>{
     let body,status=200;
     if(path==='/api/me'){

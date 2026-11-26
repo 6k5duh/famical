@@ -11,7 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from calendar_holidays import holidays_for_year
 
-APP_VERSION = '2.0.1'
+APP_VERSION = '2.0.2'
 EVENT_COLORS = [
     {'id': 'sage', 'label': '숲초록', 'hex': '#36705b'},
     {'id': 'blue', 'label': '파랑', 'hex': '#3568a1'},

@@ -4,8 +4,8 @@ import {layoutWeek,lunarLabel} from './static/calendar-layout.mjs';
 const dates=['2026-11-22','2026-11-23','2026-11-24','2026-11-25','2026-11-26','2026-11-27','2026-11-28'];
 const event=(id,day,end_day)=>({id,day,end_day});
 test('lunar label is small inline text including leap months',()=>{
- assert.equal(lunarLabel({month:9,day:23,leap:false}),'(음 9.23)');
- assert.equal(lunarLabel({month:6,day:1,leap:true}),'(윤 6.1)');assert.equal(lunarLabel(null),'');
+ assert.equal(lunarLabel({month:9,day:23,leap:false}),'(9.23)');
+ assert.equal(lunarLabel({month:6,day:1,leap:true}),'(6.1)');assert.equal(lunarLabel(null),'');
 });
 test('overlaps use separate lanes and non-overlaps reuse lanes',()=>{
  const rows=layoutWeek([event(1,'2026-11-23','2026-11-25'),event(2,'2026-11-24','2026-11-26'),event(3,'2026-11-26','2026-11-27')],dates);

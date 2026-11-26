@@ -116,3 +116,10 @@
 .desktop #message:empty { display: none; }
 
 .desktop .event-color-option:has(input:checked) { border-color: #7dc4b1; background: #264357; }
+
+.desktop section { border-radius:12px; }
+.desktop .event-bar { border-radius:6px; }
+.desktop .event-bar.continues-before { border-top-left-radius:0; border-bottom-left-radius:0; }
+.desktop .event-bar.continues-after { border-top-right-radius:0; border-bottom-right-radius:0; }
+.desktop .cell .date-heading .date { font-size:22px; }
+.desktop .compact-weeks .cell .date-heading .date { font-size:19px; }

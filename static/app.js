@@ -1,4 +1,4 @@
-import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=2.0.1';
+import {layoutWeek, lunarLabel, workProgress} from './calendar-layout.mjs?v=2.0.2';
 const $ = id => document.getElementById(id);
 let csrf = '', me = null, events = [], lunar = {}, holidays = {}, cursor = new Date(), requestNo = 0, preferenceEpoch = 0, savingPreferences = false;
 const key = 'familyCalendar.shift';
@@ -59,7 +59,7 @@ async function load() {
     lunar=Object.assign({},...pages.map(page=>page[1]));
     holidays=Object.assign({},...pages.map(page=>page[2]));
     render();
-    $('sync').textContent=`${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} 동기화`; say('');
+    $('sync').textContent=''; say('');
   } catch(e) { say(e.message); }
 }
 function shift(d) {
@@ -133,7 +133,8 @@ function render() {
       cell.append(detail);
       cell.tabIndex=0; cell.setAttribute('role','button');
       cell.setAttribute('aria-label',[`${d.getFullYear()}년 ${d.getMonth()+1}월 ${day}일`,reason,s && (s==='night'?'야간':'주간'),'일정 추가'].filter(Boolean).join(' '));
-      cell.onclick=()=>edit({day:stamp});
+      cell.onclick=e=>{if(e.target.closest('.date-heading') || !matchMedia('(pointer: fine)').matches) edit({day:stamp});};
+      cell.ondblclick=()=>{if(!$('editor').open) edit({day:stamp}, true);};
       cell.onkeydown=e=>{if(e.target===cell&&(e.key==='Enter'||e.key===' ')){e.preventDefault();edit({day:stamp});}};
       week.append(cell);
       if (overflow) {
@@ -210,8 +211,8 @@ function dateHelp() {
     : '양력 날짜는 숫자 8자리로 입력할 수 있습니다. 종료일까지 포함하며 최대 366일입니다. 매년 반복 시 2월 29일은 윤년에만 표시됩니다.';
 }
 const desktopEntry = document.documentElement?.classList.contains('desktop') === true;
-function edit(ev) {
-  const quick = desktopEntry && !ev.id;
+function edit(ev, quickRequest = false) {
+  const quick = (desktopEntry || quickRequest) && !ev.id;
   const f=$('eventForm'); f.reset(); $('editorError').textContent='';
   for(const field of ['id','title','day','clock','note']) f.elements[field].value=ev[field]||'';
   f.elements.day.value=ev.source_day||ev.day||'';
@@ -225,7 +226,7 @@ function edit(ev) {
   for(const radio of f.querySelectorAll('[name=visibility],[name=color]')) radio.disabled=!allowed;
   $('save').hidden=!allowed; $('remove').hidden=!ev.id||!allowed;
   $('author').textContent=ev.author?`작성: ${ev.author}${ev.sync_readonly?' · 반복 일정은 원본 휴대전화에서 수정':allowed?'':' · 조회만 가능'}`:'공개 범위 기본값은 모두에게 보이기입니다.';
-  if (desktopEntry) {
+  {
     $('quickEntry').hidden = !quick;
     $('quickDetail').hidden = !quick;
     $('quickLines').disabled = !quick;
@@ -290,6 +291,8 @@ if (desktopEntry) {
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => { if (me) render(); });
   }).observe($('grid'));
+}
+{
   $('eventForm').elements.day.addEventListener('change', event => {
     if (!$('quickEntry').hidden) $('quickDate').textContent = event.target.value;
   });
@@ -307,7 +310,7 @@ $('eventForm').onsubmit=async e=>{
   e.preventDefault(); const d=Object.fromEntries(new FormData(e.target));
   d.annual=e.target.elements.annual.checked; d.leap=d.calendar_type==='lunar'&&e.target.elements.leap.checked;
   if ($('save').disabled) return;
-  if (desktopEntry && !d.id) {
+  if (!$('quickEntry').hidden && !d.id) {
     const lines = $('quickLines');
     const entries = [];
     for (const raw of lines.value.split('\n').map(value => value.trim()).filter(Boolean)) {
@@ -342,7 +345,7 @@ $('eventForm').onsubmit=async e=>{
         (hidden ? ' 일정 구분을 ' + category + '로 바꾸면 보입니다.' : ''));
     }
   }
-  catch(e){$('editorError').textContent=e.message;} finally{$('save').disabled=false;if(desktopEntry)$('quickSave').disabled=false;}
+  catch(e){$('editorError').textContent=e.message;} finally{$('save').disabled=false;$('quickSave').disabled=false;}
 };
 $('remove').onclick=async()=>{if(!confirm('이 일정 전체를 삭제할까요?'))return;try{await api('events/'+$('eventForm').elements.id.value,'DELETE');$('editor').close();await load();}catch(e){$('editorError').textContent=e.message;}};
 $('close').onclick=()=>$('editor').close(); $('add').onclick=()=>edit({day:iso(new Date())});

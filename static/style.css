@@ -88,3 +88,18 @@
 .event-color-option > span:last-child { white-space: nowrap; }
 @media(max-width:600px) { .event-color-options { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media(max-width:360px) { .event-color-options { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+/* Shared native-app appearance; preserve continuous multi-day bar geometry. */
+#grid { border: 0; border-radius: 12px; }
+.calendar-week .cell { border: 1px solid #d5d9ce; border-radius: 8px; margin: 1px; user-select: none; }
+.cell .date-heading .date { font-size: 27px; line-height: 1.2; }
+.today .date-heading .date { width: 36px; height: 36px; }
+#editor:has(#quickDetail:not([hidden])) { width: min(350px, 94vw); }
+.quick-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+#quickDate { border-left:3px solid #679688; padding-left:8px; }
+#quickLines { min-height:6em; line-height:1.55; }
+#quickDetail { margin-right:auto; }
+@media(max-width:600px) {
+  .cell .date-heading .date { font-size:22px; }
+  .today .date-heading .date { width:28px; height:28px; }
+}

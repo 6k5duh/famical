@@ -1,5 +1,5 @@
 export function lunarLabel(value) {
-  return value ? `(${value.leap ? '윤' : '음'} ${value.month}.${value.day})` : '';
+  return value ? `(${value.month}.${value.day})` : '';
 }
 
 // Each work segment is one uninterrupted run of weekdays within the occurrence.
