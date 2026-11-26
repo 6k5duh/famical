@@ -52,9 +52,30 @@ namespace Famical.Windows
         internal static Button Button(string label, Action click)
         {
             var button = new Button { Content = label, Margin = new Thickness(2), Padding = new Thickness(6, 3, 6, 3), Background = Brush("#24516a"), Foreground = Brushes.White, BorderThickness = new Thickness(0) };
+            RoundButton(button);
             button.Click += (_, __) => click();
             return button;
         }
+        private static readonly ControlTemplate RoundedButtonTemplate = (ControlTemplate)System.Windows.Markup.XamlReader.Parse(@"
+<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='Button'>
+  <Border x:Name='Surface' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'
+          CornerRadius='6' Background='{TemplateBinding Background}'
+          BorderBrush='{TemplateBinding BorderBrush}' BorderThickness='{TemplateBinding BorderThickness}'>
+    <ContentPresenter Margin='{TemplateBinding Padding}' HorizontalAlignment='{TemplateBinding HorizontalContentAlignment}'
+                      VerticalAlignment='{TemplateBinding VerticalContentAlignment}' RecognizesAccessKey='True'/>
+  </Border>
+  <ControlTemplate.Triggers>
+    <Trigger Property='IsMouseOver' Value='True'><Setter TargetName='Surface' Property='Opacity' Value='0.85'/></Trigger>
+    <Trigger Property='IsPressed' Value='True'><Setter TargetName='Surface' Property='Opacity' Value='0.65'/></Trigger>
+    <Trigger Property='IsEnabled' Value='False'><Setter TargetName='Surface' Property='Opacity' Value='0.4'/></Trigger>
+    <Trigger Property='IsKeyboardFocused' Value='True'>
+      <Setter TargetName='Surface' Property='BorderBrush' Value='#A8CED6'/>
+      <Setter TargetName='Surface' Property='BorderThickness' Value='1'/>
+    </Trigger>
+  </ControlTemplate.Triggers>
+</ControlTemplate>");
+        internal static void RoundButton(Button button) => button.Template = RoundedButtonTemplate;
+
         internal static SolidColorBrush Brush(string value) => (SolidColorBrush)new BrushConverter().ConvertFromString(value);
         private string Shift(DateTime day, NativeUser user)
         {
@@ -73,6 +94,9 @@ namespace Famical.Windows
             var view = store.View();
             status.Text = store.Status + (view.pending.Count > 0 ? $" · 미전송 {view.pending.Count}건" : "");
             status.ToolTip = status.Text;
+            bool normalSync = store.Status == "동기화 완료" || store.Status == "동기화 중…" || store.Status == "기기에 저장됨";
+            status.Visibility = normalSync && view.pending.Count == 0
+                ? Visibility.Collapsed : Visibility.Visible;
             title.Text = month.ToString("yyyy년 M월");
             days.Children.Clear();
             days.RowDefinitions.Clear();
@@ -110,6 +134,8 @@ namespace Famical.Windows
                 var border = new Border
                 {
                     Child = panel,
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(1.5),
                     BorderBrush = Brush(date == DateTime.Today ? "#e65353" : "#476079"),
                     BorderThickness = new Thickness(date == DateTime.Today ? 2 : .5),
                     ClipToBounds = true,
@@ -139,6 +165,7 @@ namespace Famical.Windows
                 SetDock(tag, Dock.Right);
                 head.Children.Add(tag);
                 var number = Button(date.Day.ToString(), () => { if (matches.Count > 0) Agenda(date, matches); else Edit(null, null, date); });
+                number.FontSize += 2;
                 number.Padding = new Thickness(0);
                 number.Background = Brushes.Transparent;
                 if (!Almanac.Weekday(date) || holiday != "")

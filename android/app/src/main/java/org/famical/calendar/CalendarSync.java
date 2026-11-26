@@ -193,6 +193,6 @@ final class CalendarSync {
             if(item==null)throw new IllegalStateException("휴대전화 일정 저장을 확인할 수 없습니다.");
             api.request("calendar-sync/item","POST",message(token,item.key(),"attach",item.hash()).put("event_id",event.getLong("id")).put("revision",event.getString("revision")).put("projection_day",day));changed++;
         }
-        return java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))+" 연동 완료 · 반영 "+changed+"건 · 충돌 "+conflicts+"건 · 지원 범위 초과 "+unsupported+"건";
+        return "연동 완료 · 반영 "+changed+"건 · 충돌 "+conflicts+"건 · 지원 범위 초과 "+unsupported+"건";
     }
 }

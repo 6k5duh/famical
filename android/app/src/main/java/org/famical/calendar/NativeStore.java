@@ -406,7 +406,7 @@ class NativeStore extends SQLiteOpenHelper {
         AccountPreferences.store(prefs, state.getJSONObject("user"));
         status =
             array(state, "pending").length() == 0
-                ? "동기화 " + state.optString("synced")
+                ? "동기화 완료"
                 : "기기 저장 · 확인 필요 " + array(state, "pending").length() + "건";
       }
     } catch (Exception e) {

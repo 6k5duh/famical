@@ -315,7 +315,13 @@ public class MainActivity extends Activity {
     title.setText(month.getYear() + "년 " + month.getMonthValue() + "월");
     int count = NativeStore.array(state, "pending").length();
     status.setText(store.status + (count > 0 ? " · 미전송 " + count + "건" : ""));
+    boolean normalSync =
+        store.status.equals("동기화 완료")
+            || store.status.equals("동기화 중…")
+            || store.status.equals("기기에 저장됨");
+    status.setVisibility(normalSync && count == 0 ? View.GONE : View.VISIBLE);
     if (user == null) {
+      status.setVisibility(View.VISIBLE);
       grid.setVisibility(View.INVISIBLE);
       agendaPanel.setVisibility(View.GONE);
       status.setText("가족 계정으로 처음 로그인하면 오프라인에서도 사용할 수 있습니다. 여기를 누르세요.");
@@ -611,7 +617,7 @@ public class MainActivity extends Activity {
   private void settings() {
     JSONObject state = store.view(), user = state.optJSONObject("user");
     LinearLayout panel = form();
-    AlertDialog dialog = dialog("설정 · Android v2.2.1", panel);
+    AlertDialog dialog = dialog("설정 · Android v2.2.2", panel);
     if (user != null) {
       panel.addView(text(user.optString("name") + " 님", 18));
       boolean smsPermission =
@@ -880,7 +886,7 @@ public class MainActivity extends Activity {
               text(
                   preferences.getString("sync_label", "")
                       + "\n"
-                      + preferences.getString("sync_status", "")
+                      + preferences.getString("sync_status", "").replaceFirst("^\\d{2}:\\d{2}\\s+", "")
                       + "\n\n일반 일정은 양방향으로 반영합니다. 충돌은 기본적으로 보류합니다. 반복·음력 보기용 일정은 원본에서 수정하세요.",
                   14))
           .setItems(

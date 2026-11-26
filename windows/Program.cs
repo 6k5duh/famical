@@ -71,7 +71,7 @@ namespace Famical.Windows
         {
             Title = "달력";
             ShowInTaskbar = false;
-            Background = new SolidColorBrush(Color.FromRgb(15, 35, 51));
+            Background = Brushes.Transparent;
             Foreground = Brushes.White;
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
@@ -89,10 +89,10 @@ namespace Famical.Windows
                 CaptionHeight = 0,
                 ResizeBorderThickness = new Thickness(6),
                 GlassFrameThickness = new Thickness(0),
-                CornerRadius = new CornerRadius(0)
+                CornerRadius = new CornerRadius(12)
             });
 
-            var panel = new DockPanel { Margin = new Thickness(6) };
+            var panel = new DockPanel { Margin = new Thickness(9) };
             var bar = new DockPanel { Margin = new Thickness(3, 1, 3, 5) };
             DockPanel.SetDock(bar, Dock.Top);
             panel.Children.Add(bar);
@@ -137,7 +137,15 @@ namespace Famical.Windows
             };
             bar.Children.Add(title);
             panel.Children.Add(new CalendarView(store));
-            Content = panel;
+            var surface = new Border
+            {
+                CornerRadius = new CornerRadius(12),
+                Background = new SolidColorBrush(Color.FromRgb(15, 35, 51)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(58, 83, 104)),
+                BorderThickness = new Thickness(1),
+                Child = panel
+            };
+            Content = surface;
             trayMenu = new Forms.ContextMenuStrip();
             trayMenu.Items.Add("달력 열기", null, (_, __) => OpenCalendar());
             trayMenu.Items.Add("종료", null, (_, __) => { AllowExit(); Application.Current.Shutdown(); });
@@ -250,6 +258,7 @@ namespace Famical.Windows
                 Margin = new Thickness(1)
             };
             System.Windows.Automation.AutomationProperties.SetName(button, name);
+            CalendarView.RoundButton(button);
             button.Click += (_, __) => action();
             panel.Children.Add(button);
         }

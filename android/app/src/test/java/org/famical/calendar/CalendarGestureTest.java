@@ -160,6 +160,8 @@ public class CalendarGestureTest {
           View.MeasureSpec.makeMeasureSpec((int) (780 * density), View.MeasureSpec.EXACTLY));
       root.layout(0, 0, root.getMeasuredWidth(), root.getMeasuredHeight());
       calendar = (NativeMonthView) field(activity, "grid");
+      int expandedHeight = calendar.getHeight();
+      assertEquals(View.GONE, ((TextView) field(activity, "status")).getVisibility());
       swipe(150, 300, 150, 100);
       android.animation.ValueAnimator folding =
           (android.animation.ValueAnimator) field(activity, "collapseAnimator");
@@ -182,7 +184,7 @@ public class CalendarGestureTest {
       assertEquals(
           Math.round(56 * density),
           list.getAdapter().getView(0, null, list).getLayoutParams().height);
-      assertTrue(calendar.getHeight() < 500 * density);
+      assertEquals(expandedHeight - panel.getHeight(), calendar.getHeight());
       Bitmap bitmap =
           Bitmap.createBitmap(root.getWidth(), root.getHeight(), Bitmap.Config.ARGB_8888);
       root.draw(new Canvas(bitmap));

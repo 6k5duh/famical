@@ -262,7 +262,7 @@ namespace Famical.Windows
                     state.synced = DateTime.Now.ToString("MM/dd HH:mm");
                     Persist();
                 }
-                Status = View().pending.Count == 0 ? "동기화 " + View().synced : $"기기 저장 · 확인 필요 {View().pending.Count}건";
+                Status = View().pending.Count == 0 ? "동기화 완료" : $"기기 저장 · 확인 필요 {View().pending.Count}건";
             }
             catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException || ex is IOException || ex is ArgumentException)
             {

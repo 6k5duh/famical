@@ -1,6 +1,6 @@
 {
-  "version_name": "2.2.1",
-  "version_code": 13,
+  "version_name": "2.2.2",
+  "version_code": 14,
   "application_id": "org.famical.calendar",
   "min_sdk": 26,
   "target_sdk": 35,
@@ -13,28 +13,35 @@
   "app_foreground_sync_seconds": 60,
   "widget_refresh_request_minutes": 60,
   "signing": "Same development certificate as v1.2.1, optimized release build, debugging disabled",
-  "apk_bytes": 100258,
-  "apk_sha256": "d273ad5d6cb5bc1409d68337ca0112913dd4bdc24157dca7fb923bd7fa85c929",
+  "apk_bytes": 100330,
+  "apk_sha256": "879a5730024720e27fb38eaee7fb339542db69e28823757dfa9e9e4c4f547e03",
   "unit_tests": {
     "tests": 59,
-    "failures": 0
+    "failures": 0,
+    "errors": 0
   },
   "lint": {
     "errors": 0,
     "warnings": 53
   },
   "windows": {
-    "version": "2.0.5",
+    "version": "2.0.6",
     "native_ui": "WPF",
     "local_store": "atomic JSON encrypted with Windows DPAPI",
-    "zip_bytes": 57908,
-    "zip_sha256": "21baa43ecd7ea52f7b4ca921654a9abfabcd1980963956717da0c6cddc74294a",
+    "zip_bytes": 58684,
+    "zip_sha256": "3ff436a16859e7d3f2f9f0eef10826f08eb82530d4feed41142f0066329fa66b",
     "build_warnings": 0,
     "blank_date_double_click_quick_add": true,
     "quick_add_escape_cancels": true,
     "window_placement_restored": true,
     "window_settings_autosave_ms": 400,
-    "display_name": "달력"
+    "display_name": "달력",
+    "rounded_corners": {
+      "window": 12,
+      "date_cell": 8,
+      "button": 6
+    },
+    "date_font_increase": 2
   },
   "server_tests": {
     "tests": 31,
@@ -98,5 +105,6 @@
       "가족돌봄휴가": "돌봄",
       "유계결근": "유결"
     }
-  }
+  },
+  "sync_timestamp_hidden": true
 }
