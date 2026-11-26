@@ -2,7 +2,7 @@
 
 [Android v2.2.2 APK 다운로드](famical-android-2.2.2.apk) · [Android 설치 안내](../android/README.md)
 
-[Windows v2.0.6 x64 ZIP 다운로드](famical-windows-2.0.6-x64.zip) · [Windows 설치 안내](../windows/README.md)
+[Windows v2.0.7 x64 ZIP 다운로드](famical-windows-2.0.7-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
 Android v2.1.2은 좌우 월 이동 슬라이드와 달력 접기·펼치기의 부드러운 높이 전환을 제공합니다. 접힌 달력 아래에는 선택한 날짜의 일정 3줄을 표시하며 추가 일정은 목록을 스크롤해 확인합니다. 달력을 아래로 밀면 다시 펼칩니다.
 
@@ -37,3 +37,5 @@ Android v2.2.0 / Windows v2.0.5의 표시 이름은 **달력**입니다. 기존 
 Android v2.2.1은 휴가 요청 SMS의 9가지 종류를 지정한 약칭(년차·생휴·경조·향군·유급·무급·출산·돌봄·유결)으로 등록합니다. 사진의 괄호 설명이 붙은 종류도 인식합니다. 기존 앱 위에 업데이트 설치하면 자동 등록 설정이 유지되며 NAS/Windows 업데이트는 필요 없습니다.
 
 Android v2.2.2와 Windows v2.0.6은 달력 하단의 동기화 시각을 숨깁니다. 실제 동기화는 유지합니다. Windows는 둥근 창·날짜 칸·버튼과 2포인트 커진 날짜 숫자를 적용했습니다. NAS 재빌드는 필요 없습니다.
+
+Windows v2.0.7은 날짜 숫자를 v2.0.6보다 4포인트 더 키우고 음력을 `(10.19)`처럼 월·일만 표시합니다. NAS·Android 업데이트는 필요 없습니다.

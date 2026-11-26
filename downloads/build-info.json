@@ -25,11 +25,11 @@
     "warnings": 53
   },
   "windows": {
-    "version": "2.0.6",
+    "version": "2.0.7",
     "native_ui": "WPF",
     "local_store": "atomic JSON encrypted with Windows DPAPI",
-    "zip_bytes": 58684,
-    "zip_sha256": "3ff436a16859e7d3f2f9f0eef10826f08eb82530d4feed41142f0066329fa66b",
+    "zip_bytes": 58623,
+    "zip_sha256": "809e703ca5ed316d9dcf7acc4f07f9775a3da2d6941afe5cb2f27e3284106365",
     "build_warnings": 0,
     "blank_date_double_click_quick_add": true,
     "quick_add_escape_cancels": true,
@@ -41,7 +41,9 @@
       "date_cell": 8,
       "button": 6
     },
-    "date_font_increase": 2
+    "date_font_increase": 6,
+    "date_font_increase_from_2_0_6": 4,
+    "lunar_label": "(month.day)"
   },
   "server_tests": {
     "tests": 31,

@@ -95,7 +95,7 @@ namespace Famical.Windows
             if (i < 0 || day > new DateTime(2050, 12, 31))
                 return "";
             var row = data.months[i];
-            return $"({(Convert.ToInt32(row[3]) == 1 ? "윤" : "음")} {row[2]}.{(day - starts[i]).Days + 1})";
+            return $"({row[2]}.{(day - starts[i]).Days + 1})";
         }
         internal DateTime ConvertDate(string stamp, bool lunar, bool leap)
         {

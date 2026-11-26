@@ -1,6 +1,6 @@
-# 달력 for Windows v2.0.6
+# 달력 for Windows v2.0.7
 
-[Windows x64 다운로드](../downloads/famical-windows-2.0.6-x64.zip)
+[Windows x64 다운로드](../downloads/famical-windows-2.0.7-x64.zip)
 
 1. NAS 소스를 v2.0.1으로 업데이트하고 Container Manager에서 다시 빌드합니다. 기존 데이터 볼륨과 관리자 설정 파일을 유지합니다.
 2. 실행 중인 Windows 앱을 트레이 아이콘 우클릭 → 종료로 닫습니다.
@@ -45,4 +45,4 @@ v2.0.1은 WPF로 달력을 직접 그립니다. WebView2 설치 없이 실행하
 
 .NET 8 SDK로 저장소 루트에서 `dotnet build windows/Famical.csproj -c Release`를 실행합니다. 배포 ZIP은 `windows/bin/Release/net48`의 EXE, EXE.config와 THIRD_PARTY_NOTICES.txt를 포함합니다. 달력 데이터는 EXE 안에 압축되어 있습니다. 재생성은 Python 의존성을 설치한 뒤 `python native/build_calendar.py`로 실행합니다.
 
-Windows v2.0.6은 창 모서리 12, 날짜 칸 8, 버튼 6의 둥근 모서리를 적용하고 날짜 숫자를 기존보다 2포인트 키웠습니다. 자동 동기화 주기는 기존 1분으로 유지합니다.
+Windows v2.0.7은 창 모서리 12, 날짜 칸 8, 버튼 6의 둥근 모서리를 적용하고 날짜 숫자를 v2.0.6보다 4포인트 더 키웠습니다. 음력은 `(10.19)`처럼 괄호 안에 월·일만 표시합니다. 자동 동기화 주기는 기존 1분으로 유지합니다.

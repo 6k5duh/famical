@@ -124,7 +124,7 @@ namespace Famical.Windows
                     if (span.Item1 <= first.AddDays(count - 1) && span.Item2 >= first)
                         occurrences.Add(Tuple.Create(item.Key, item.Value, span.Item1, span.Item2));
             }
-            int limit = Math.Max(0, (int)((days.ActualHeight / (count / 7) - 45) / 23) - 1);
+            int limit = Math.Max(0, (int)((days.ActualHeight / (count / 7) - 49) / 23) - 1);
             for (int i = 0; i < count; i++)
             {
                 var date = first.AddDays(i);
@@ -165,7 +165,7 @@ namespace Famical.Windows
                 SetDock(tag, Dock.Right);
                 head.Children.Add(tag);
                 var number = Button(date.Day.ToString(), () => { if (matches.Count > 0) Agenda(date, matches); else Edit(null, null, date); });
-                number.FontSize += 2;
+                number.FontSize += 6;
                 number.Padding = new Thickness(0);
                 number.Background = Brushes.Transparent;
                 if (!Almanac.Weekday(date) || holiday != "")
