@@ -1,6 +1,6 @@
 {
-  "version_name": "2.2.2",
-  "version_code": 14,
+  "version_name": "2.2.3",
+  "version_code": 15,
   "application_id": "org.famical.calendar",
   "min_sdk": 26,
   "target_sdk": 35,
@@ -13,12 +13,11 @@
   "app_foreground_sync_seconds": 60,
   "widget_refresh_request_minutes": 60,
   "signing": "Same development certificate as v1.2.1, optimized release build, debugging disabled",
-  "apk_bytes": 100330,
-  "apk_sha256": "879a5730024720e27fb38eaee7fb339542db69e28823757dfa9e9e4c4f547e03",
+  "apk_bytes": 100150,
+  "apk_sha256": "2ba7b04af84858b75b7d3d96c56281f7d51765cdeea980226e73219ea8db3e21",
   "unit_tests": {
-    "tests": 59,
-    "failures": 0,
-    "errors": 0
+    "tests": 60,
+    "failures": 0
   },
   "lint": {
     "errors": 0,
@@ -122,5 +121,16 @@
     "escape_cancel": true,
     "sync_interval_seconds": 30,
     "sync_timestamp_hidden": true
+  },
+  "widget_appearance": {
+    "status_and_version_hidden": true,
+    "title_size_sp": 21,
+    "wide_title_size_sp": 26,
+    "title_max_lines": 2,
+    "render_test_widths_dp": [
+      260,
+      300,
+      480
+    ]
   }
 }

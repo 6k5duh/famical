@@ -32,6 +32,21 @@ public class WidgetRendererTest {
         view.measure(View.MeasureSpec.makeMeasureSpec(w,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(h,View.MeasureSpec.EXACTLY));
         view.layout(0,0,w,h);return view;
     }
+    @Test public void headerIsLargerAndFooterMetadataIsHiddenAtAllSizes() {
+        Context context=RuntimeEnvironment.getApplication();
+        for(int width:new int[]{260,300,480}) {
+            View view=render(width,400,LocalDate.of(2026,11,27));
+            TextView title=view.findViewById(R.id.widget_title);
+            assertEquals((width>=400?26:21)*context.getResources().getDisplayMetrics().scaledDensity,title.getTextSize(),0.1f);
+            assertEquals(2,title.getMaxLines());
+            assertEquals("2026년 11월 27일 금요일",title.getText().toString());
+            for(int line=0;line<title.getLineCount();line++)assertEquals(0,title.getLayout().getEllipsisCount(line));
+            TextView status=view.findViewById(R.id.widget_status);
+            assertEquals("",status.getText().toString());
+            assertEquals(View.INVISIBLE,status.getVisibility());
+            assertEquals(View.VISIBLE,view.findViewById(R.id.widget_refresh).getVisibility());
+        }
+    }
     @Test public void largeCalendarFillsWidgetInsteadOfLeavingBlankSpace() {
         Context c=RuntimeEnvironment.getApplication();
         assertNotEquals("A new layout ID must force launcher reinflation after the APK update",R.layout.calendar_widget_grid,WidgetRenderer.create(c,300,480,LocalDate.of(2026,11,17),"갱신").getLayoutId());

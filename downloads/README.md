@@ -1,6 +1,6 @@
 # 달력 다운로드
 
-[Android v2.2.2 APK 다운로드](famical-android-2.2.2.apk) · [Android 설치 안내](../android/README.md)
+[Android v2.2.3 APK 다운로드](famical-android-2.2.3.apk) · [Android 설치 안내](../android/README.md)
 
 [Windows v2.0.7 x64 ZIP 다운로드](famical-windows-2.0.7-x64.zip) · [Windows 설치 안내](../windows/README.md)
 
@@ -41,3 +41,5 @@ Android v2.2.2와 Windows v2.0.6은 달력 하단의 동기화 시각을 숨깁�
 Windows v2.0.7은 날짜 숫자를 v2.0.6보다 4포인트 더 키우고 음력을 `(10.19)`처럼 월·일만 표시합니다. NAS·Android 업데이트는 필요 없습니다.
 
 웹/NAS v2.0.2는 날짜 확대·간결한 음력·둥근 모서리·동기화 시각 숨김과 빈칸 더블클릭 빠른 입력을 반영했습니다. 웹 변경은 NAS 프로젝트의 소스 교체 후 빌드·컨테이너 재생성이 필요합니다. 데이터 볼륨과 기존 설정을 유지하세요.
+
+Android v2.2.3은 위젯 버전·상태 문구를 숨기고 상단 날짜를 4sp 키웠습니다. 업데이트 후 위젯에서 갱신을 누르면 적용됩니다.

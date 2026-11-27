@@ -23,7 +23,8 @@ final class WidgetRenderer {
         String team=p.getString("widget_team","A");boolean enabled=p.getBoolean("widget_shift",true);
         RemoteViews views=new RemoteViews(context.getPackageName(),R.layout.calendar_widget_marks);
         views.setTextViewText(R.id.widget_title,today.format(DateTimeFormatter.ofPattern("yyyy년 M월 d일 EEEE",Locale.KOREAN)));
-        views.setTextViewTextSize(R.id.widget_title,TypedValue.COMPLEX_UNIT_SP,width>=400?22:17);
+        views.setTextViewTextSize(R.id.widget_title,TypedValue.COMPLEX_UNIT_SP,width>=400?26:21);
+        views.setInt(R.id.widget_title,"setMaxLines",2);
         String shift=WidgetSummary.shift(today,team,enabled);
         views.setTextViewText(R.id.widget_shift,shift);
         views.setViewVisibility(R.id.widget_shift,shift.isEmpty()||height<280?View.GONE:View.VISIBLE);
@@ -57,10 +58,9 @@ final class WidgetRenderer {
         views.setViewVisibility(R.id.widget_events,height<280||(height<330&&rows==6)?View.GONE:View.VISIBLE);
         views.setInt(R.id.widget_events,"setMaxLines",height<300?1:3);
         views.setTextViewTextSize(R.id.widget_events,TypedValue.COMPLEX_UNIT_SP,width>=400?16:13);
-        String version="";
-        try { version=context.getPackageManager().getPackageInfo(context.getPackageName(),0).versionName; }
-        catch(android.content.pm.PackageManager.NameNotFoundException ignored) {}
-        views.setTextViewText(R.id.widget_status,status+(version==null||version.isEmpty()?"":" · v"+version));
+        views.setTextViewText(R.id.widget_status, "");
+        // Keep the footer spacer so refresh stays at the right edge on existing widgets.
+        views.setViewVisibility(R.id.widget_status, View.INVISIBLE);
         Intent open=new Intent(context,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TOP);
         views.setOnClickPendingIntent(R.id.widget_root,PendingIntent.getActivity(context,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE));
         Intent update=new Intent(context,CalendarWidget.class).setAction(CalendarWidget.REFRESH);
